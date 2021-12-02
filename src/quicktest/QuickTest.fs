@@ -78,3 +78,17 @@ let measureTime (f: unit -> unit) = emitJsStatement () """
 // to Fable.Tests project. For example:
 // testCase "Addition works" <| fun () ->
 //     2 + 2 |> equal 4
+
+[<Global>]
+type Array =
+    abstract push: item: obj -> unit
+    abstract length: int
+
+testCase "Can type test interfaces decorated with Global" <| fun () ->
+    let ar = ResizeArray [| 1; 2; 3 |] |> box
+    match ar with
+    | :? Array as ar ->
+        ar.length |> equal 3
+        ar.push("4")
+        ar.length |> equal 4
+    | _ -> failwith "Not an array"

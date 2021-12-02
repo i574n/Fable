@@ -226,7 +226,7 @@ module Reflection =
             | _ ->
                 let ent = com.GetEntity(entRef)
                 let generics = generics |> List.map (transformTypeInfo com ctx r genMap) |> List.toArray
-                /// Check if the entity is actually declared in JS code
+                // Check if the entity is actually declared in JS code
                 if ent.IsInterface
                     || FSharp2Fable.Util.isErasedOrStringEnumEntity ent
                     || FSharp2Fable.Util.isGlobalOrImportedEntity ent
@@ -324,7 +324,11 @@ module Reflection =
             | _ ->
                 let ent = com.GetEntity(ent)
                 if ent.IsInterface then
-                    warnAndEvalToFalse "interfaces"
+                    match FSharp2Fable.Util.tryGlobalOrImportedEntity com ent with
+                    | Some typeExpr ->
+                        let typeExpr = com.TransformAsExpr(ctx, typeExpr)
+                        jsInstanceof typeExpr expr
+                    | None -> warnAndEvalToFalse "interfaces"
                 else
                     match tryJsConstructor com ctx ent with
                     | Some cons ->
