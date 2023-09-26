@@ -1,3 +1,18 @@
+### Unreleased
+
+* Fix #3480: Function decorated with `[<NamedParams>]` without arguments provided should take an empty object
+* Fix #3494: Calling an attached parametrized getter fails in transpiled javascript
+* Remove fable-py support
+* Fix #3461: Don't default to javascript if the language requested by the user is unknown (help detect typo)
+* Improve --help message for the --lang section
+* Fix #3464: Invalidate cache when the target language changes
+* Always delete the `fable_modules` folder when the cache is invalidated
+* Remove `--typescript` options support, use `--lang <target>` instead
+* Fix #3441: Don't ignore error when loading plugin
+* Fix #3482: Remove `Py.python` and `Py.expr_python` use `emitPyStatement` and `emitPyExpr` instead
+* Restrict replacements to accept only functions from their target language module
+* Fix #3528: Consider functions hidden by a signature file as private (@nojaf)
+
 ### 4.1.4
 
 * Fix #3438: Source maps

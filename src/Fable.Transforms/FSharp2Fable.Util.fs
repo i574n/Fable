@@ -684,8 +684,18 @@ module Helpers =
         | FSharpInlineAnnotation.AlwaysInline
         | FSharpInlineAnnotation.AggressiveInline -> true
 
+    let topLevelBindingHiddenBySignatureFile (v: FSharpMemberOrFunctionOrValue) =
+        let parentHasSignatureFile () =
+            v.DeclaringEntity
+            |> Option.bind (fun p -> p.SignatureLocation)
+            |> Option.map (fun m -> m.FileName.EndsWith(".fsi"))
+            |> Option.defaultValue false
+
+        v.IsModuleValueOrMember && not v.HasSignatureFile && parentHasSignatureFile ()
+    
     let isNotPrivate (memb: FSharpMemberOrFunctionOrValue) =
         if memb.IsCompilerGenerated then false
+        elif topLevelBindingHiddenBySignatureFile memb then false
         else not memb.Accessibility.IsPrivate
 
     let isPublic (memb: FSharpMemberOrFunctionOrValue) =
@@ -1694,10 +1704,14 @@ module Util =
                      |> Seq.mapToList (fun p -> makeType Map.empty p.Type)
                      |> Some
                  else None
+
+            let fableMemberFunctionOrValue = FsMemberFunctionOrValue(memb) :> Fable.MemberFunctionOrValue
+
             Fable.MemberRef(FsEnt.Ref(ent), {
                 CompiledName = memb.CompiledName
                 IsInstance = memb.IsInstanceMember
                 NonCurriedArgTypes = nonCurriedArgTypes
+                Attributes = fableMemberFunctionOrValue.Attributes
             })
         | ent ->
             let entRef = ent |> Option.map FsEnt.Ref
@@ -1712,10 +1726,13 @@ module Util =
         match memb.DeclaringEntity with
         // We cannot retrieve compiler generated members from the entity
         | Some ent when not memb.IsCompilerGenerated ->
+            let fableMemberFunctionOrValue = FsMemberFunctionOrValue(memb) :> Fable.MemberFunctionOrValue
+
             Fable.MemberRef(FsEnt.Ref(ent), {
                 CompiledName = memb.CompiledName
                 IsInstance = memb.IsInstanceMember
                 NonCurriedArgTypes = None
+                Attributes = fableMemberFunctionOrValue.Attributes
             })
         | ent ->
             let entRef = ent |> Option.map FsEnt.Ref
@@ -1825,11 +1842,19 @@ module Util =
             let arg = callInfo.Args |> List.tryHead |> Option.defaultWith makeNull
             Fable.Set(callee, Fable.FieldSet(info.name), membType, arg, r)
         else
+            // If the entity is decorated with AttachMembers, we need to remove the get/set prefix
+            // See https://github.com/fable-compiler/Fable/issues/3494
+            let membName =
+                if isAttachMembersEntity com entity then
+                    Naming.removeGetSetPrefix info.name
+                else
+                    info.name
+
             let entityGenParamsCount = entity.GenericParameters.Count
             let callInfo =
                 if callInfo.GenericArgs.Length < entityGenParamsCount then callInfo
                 else { callInfo with GenericArgs = List.skip entityGenParamsCount callInfo.GenericArgs }
-            getField callee info.name |> makeCall r typ callInfo
+            getField callee membName |> makeCall r typ callInfo
 
     let failReplace (com: IFableCompiler) ctx r (info: Fable.ReplaceCallInfo) (thisArg: Fable.Expr option) =
         let msg =

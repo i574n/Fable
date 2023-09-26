@@ -52,6 +52,11 @@ type CacheInfo =
 
     member this.Write() =
         let path = CacheInfo.GetPath(this.FableModulesDir, this.FableOptions.DebugMode)
+
+        // Ensure the destination folder exists
+        if not (IO.File.Exists path) then
+            IO.Directory.CreateDirectory(IO.Path.GetDirectoryName path) |> ignore
+
         Json.write path this
 
     /// Checks if there's also cache info for the alternate build mode (Debug/Release) and whether is more recent
@@ -106,9 +111,8 @@ type CrackerOptions(cliArgs: CliArgs) =
             |> CrackerOptions.GetFableModulesFromDir
 
         if noCache then
-            try
+            if IO.Directory.Exists(fableModulesDir) then
                 IO.Directory.Delete(fableModulesDir, recursive=true)
-            with _ -> ()
 
         if File.isDirectoryEmpty fableModulesDir then
             IO.Directory.CreateDirectory(fableModulesDir) |> ignore
@@ -722,6 +726,7 @@ let getFullProjectOpts (opts: CrackerOptions) =
 
             cacheInfo.Version = Literals.VERSION
             && cacheInfo.Exclude = opts.Exclude
+            && cacheInfo.FableOptions.Language = opts.FableOptions.Language
             && (
                 [
                     cacheInfo.ProjectPath
@@ -788,6 +793,11 @@ let getFullProjectOpts (opts: CrackerOptions) =
 
     | None ->
         let projRefs, mainProj = retryGetCrackedProjects opts
+
+        // The cache was considered outdated / invalid so it is better to make
+        // make sure we have are in a clean state
+        if IO.Directory.Exists(opts.FableModulesDir) then
+            IO.Directory.Delete(opts.FableModulesDir, true)
 
         let fableLibDir, pkgRefs =
             match opts.FableOptions.Language with
