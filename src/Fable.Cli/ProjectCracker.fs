@@ -111,7 +111,7 @@ type CrackerOptions(cliArgs: CliArgs) =
             |> CrackerOptions.GetFableModulesFromDir
 
         if noCache then
-            if IO.Directory.Exists(fableModulesDir) then
+            if IO.Directory.Exists(fableModulesDir) && (fableModulesDir + "/fable-library-rust" |> IO.DirectoryInfo).LinkTarget = null then
                 IO.Directory.Delete(fableModulesDir, recursive=true)
 
         if File.isDirectoryEmpty fableModulesDir then
@@ -796,7 +796,7 @@ let getFullProjectOpts (opts: CrackerOptions) =
 
         // The cache was considered outdated / invalid so it is better to make
         // make sure we have are in a clean state
-        if IO.Directory.Exists(opts.FableModulesDir) then
+        if IO.Directory.Exists(opts.FableModulesDir) && (opts.FableModulesDir + "/fable-library-rust" |> IO.DirectoryInfo).LinkTarget = null then
             IO.Directory.Delete(opts.FableModulesDir, true)
 
         let fableLibDir, pkgRefs =
