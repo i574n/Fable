@@ -2,6 +2,7 @@ module rec Fable.Transforms.Fable2Python
 
 open System
 open System.Collections.Generic
+open System.Text.RegularExpressions
 
 open Fable
 open Fable.AST
@@ -45,10 +46,9 @@ type BoundVars =
         enclosingScope.UnionWith(this.EnclosingScope)
         enclosingScope.UnionWith(this.LocalScope)
 
-        { this with
-            LocalScope = HashSet()
-            EnclosingScope = enclosingScope
-            Inceptions = this.Inceptions + 1 }
+        { LocalScope = HashSet()
+          EnclosingScope = enclosingScope
+          Inceptions = this.Inceptions + 1 }
 
     member this.Bind(name: string) =
         this.LocalScope.Add name |> ignore
@@ -418,7 +418,7 @@ module Reflection =
             Expression.compare (expr, [ Is ], [ Util.undefined None ], ?loc = range), stmts
         | Fable.Boolean -> pyTypeof "<class 'bool'>" expr
         | Fable.Char
-        | Fable.String _ -> pyTypeof "<class 'str'>" expr
+        | Fable.String -> pyTypeof "<class 'str'>" expr
         | Fable.Number (kind, b) ->
             match kind, typ with
             | _, Fable.Type.Number (UInt8, _) -> pyTypeof "<fable_modules.fable_library.types.uint8'>>" expr
@@ -2224,11 +2224,6 @@ module Util =
         // printfn "transformGet: %A" (fableExpr.Type)
 
         match kind with
-        | Fable.ExprGet (Fable.Value(kind = Fable.StringConstant "length"))
-        | Fable.FieldGet { Name = "length" } ->
-            let func = Expression.name "len"
-            let left, stmts = com.TransformAsExpr(ctx, fableExpr)
-            Expression.call (func, [ left ]), stmts
         | Fable.FieldGet { Name = "message" } ->
             let func = Expression.name "str"
             let left, stmts = com.TransformAsExpr(ctx, fableExpr)
@@ -2243,7 +2238,7 @@ module Util =
             expr, stmts @ stmts' @ stmts''
 
         | Fable.FieldGet i ->
-            //printfn "Fable.FieldGet: %A" (fieldName, fableExpr.Type)
+            // printfn "Fable.FieldGet: %A" (i.Name, fableExpr.Type)
             let fieldName = i.Name |> Naming.toSnakeCase // |> Helpers.clean
 
             let fableExpr =
@@ -3249,6 +3244,9 @@ module Util =
 
         let args = discardUnitArg args
 
+        /// Removes `_mut` or `_mut_1` suffix from the identifier name
+        let cleanName (input: string) = Regex.Replace(input, @"_mut(_\d+)?$", "")
+
         // For Python we need to append the TC-arguments to any declared (arrow) function inside the while-loop of the
         // TCO. We will set them as default values to themselves e.g `i=i` to capture the value and not the variable.
         let tcArgs, tcDefaults =
@@ -3257,7 +3255,7 @@ module Util =
                 tc.Args
                 |> List.choose (fun arg ->
                     let (Identifier name) = arg.Arg
-                    let name = name.Substring(0, name.Length - 4)
+                    let name = cleanName name
                     match name with
                     | "tupled_arg_m" -> None // Remove these arguments (not sure why)
                     | _ ->
