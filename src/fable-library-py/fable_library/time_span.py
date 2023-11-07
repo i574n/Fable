@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from datetime import timedelta
-from typing import Any, Optional
+from typing import Any
 
 from .util import pad_left_and_right_with_zeros, pad_with_zeros
 
@@ -101,10 +103,10 @@ def divide(ts: timedelta, divisor: int) -> timedelta:
 
 def create(
     d: int = 0,
-    h: Optional[int] = None,
-    m: Optional[int] = None,
-    s: Optional[int] = None,
-    ms: Optional[int] = None,
+    h: int | None = None,
+    m: int | None = None,
+    s: int | None = None,
+    ms: int | None = None,
 ) -> timedelta:
     if h is None and m is None and s is None and ms is None:
         return from_ticks(d)
@@ -112,12 +114,10 @@ def create(
     elif s is None and ms is None:
         return timedelta(hours=d or 0, minutes=h or 0, seconds=m or 0)
 
-    return timedelta(
-        days=d, hours=h or 0, minutes=m or 0, seconds=s or 0, milliseconds=ms or 0
-    )
+    return timedelta(days=d, hours=h or 0, minutes=m or 0, seconds=s or 0, milliseconds=ms or 0)
 
 
-def to_string(ts: timedelta, format: str = "c", _provider: Optional[Any] = None) -> str:
+def to_string(ts: timedelta, format: str = "c", _provider: Any | None = None) -> str:
     if format not in ["c", "g", "G"]:
         raise ValueError("Custom formats are not supported")
 
@@ -144,6 +144,7 @@ def to_string(ts: timedelta, format: str = "c", _provider: Optional[Any] = None)
 __all__ = [
     "create",
     "to_milliseconds",
+    "to_string",
     "from_ticks",
     "from_milliseconds",
     "from_hours",

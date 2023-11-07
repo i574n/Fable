@@ -6,6 +6,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 4.2.0 - 2021-10-24
+
+### Added
+
+#### JavaScript
+
+* Add `NumberConstructor.EPSILON` (by @MangelMaxime)
+* Add `NumberConstructor.isFinite` (by @MangelMaxime)
+* Add `NumberConstructor.isInteger` (by @MangelMaxime)
+* Add `NumberConstructor.isSafeInteger` (by @MangelMaxime)
+* Add `NumberConstructor.MAX_SAFE_INTEGER` (by @MangelMaxime)
+* Add `NumberConstructor.MIN_SAFE_INTEGER` (by @MangelMaxime)
+* Add `NumberConstructor.parseFloat` (by @MangelMaxime)
+* Add `NumberConstructor.parseInt` (by @MangelMaxime)
+
+### Changed
+
+#### JavaScript
+
+* Change `NumberConstructor.isNaN` from `float -> bool` to `obj -> bool` (by @MangelMaxime)
+
+## 4.1.1
+
+### Added
+
+#### Python
+
+* Fix #3482: Revert removal of `Py.python` and `Py.expr_python` (by @dbrattli)
+
 ## 4.1.0
 
 * Fix #3482: Remove `Py.python` and `Py.expr_python`

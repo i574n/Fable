@@ -13,7 +13,6 @@ type HashSet<'T> = System.Collections.Generic.HashSet<'T>
 type Import = {
     Selector: string
     LocalIdent: string
-    ModuleName: string
     ModulePath: string
     Path: string
     mutable Depths: int list
@@ -62,7 +61,9 @@ type IRustCompiler =
     abstract WarnOnlyOnce: string * ?range: SourceLocation -> unit
     abstract GetAllImports: Context -> Import list
     abstract ClearAllImports: Context -> unit
-    abstract GetAllModules: unit -> (string * string) list
+    abstract GetAllModules: unit -> string list
+    abstract GetAllNamespaces: unit -> (string * string) list
+    abstract AddNamespace: string * string -> unit
     abstract GetImportName: Context * selector: string * path: string * SourceLocation option -> string
     abstract TransformExpr: Context * Fable.Expr -> Rust.Expr
     abstract GetEntity: entRef: Fable.EntityRef -> Fable.Entity
@@ -79,6 +80,48 @@ module Helpers =
                 match acc |> Map.tryFind key with
                 | Some old -> acc |> Map.add key (aggregateFn old value)
                 | None -> acc |> Map.add key value)
+
+
+module Namespace =
+
+    type Trie<'K, 'V when 'K: comparison and 'V: comparison> = {
+        Values: Set<'V>
+        Children: Map<'K, Trie<'K, 'V>>
+    }
+
+    module Trie =
+        let empty = {
+            Values = Set.empty
+            Children = Map.empty
+        }
+
+        let isLeaf trie =
+            not (Set.isEmpty trie.Values)
+
+        let isEmpty trie =
+            Map.isEmpty trie.Children && not (isLeaf trie)
+
+        let rec add path value trie =
+            match path with
+            | [] ->
+                { trie with Values = Set.add value trie.Values }
+            | x::xs ->
+                let child =
+                    trie.Children
+                    |> Map.tryFind x
+                    |> Option.defaultValue empty
+                    |> add xs value
+                let children =
+                    trie.Children
+                    |> Map.add x child
+                { trie with Children = children }
+
+        let ofSeq (xs: (string * string) seq) =
+            (empty, xs)
+            ||> Seq.fold (fun st (m, n) ->
+                let path = n.Split('.') |> List.ofArray
+                add path m st
+            )
 
 module UsageTracking =
 
@@ -3025,17 +3068,42 @@ module Util =
                     let relPath = Path.getRelativePath com.CurrentFile filePath
                     com.GetImportName(ctx, "*", relPath, None) |> ignore
             )
-            let makeModItems (modulePath, moduleName) =
+            // re-export modules at crate level
+            let makeModItems modulePath =
                 let relPath = Path.getRelativePath com.CurrentFile modulePath
+                let modName = getImportModuleName com modulePath
                 let attrs = [mkEqAttr "path" relPath]
-                let modItem = mkUnloadedModItem attrs moduleName
-                let useItem = mkGlobUseItem [] [moduleName]
-                [modItem; useItem |> mkPublicItem] // re-export modules at top level
+                let modItem = mkUnloadedModItem attrs modName
+                let useItem = mkGlobUseItem [] [modName]
+                [modItem; useItem |> mkPublicItem]
             let modItems =
                 com.GetAllModules()
-                |> List.sortBy fst
+                |> List.sort
                 |> List.collect makeModItems
             modItems
+        else []
+
+    let getNamespaceItems (com: IRustCompiler) ctx =
+        if isLastFileInProject com then
+            // convert namespace trie to modules and glob use items
+            let rec toItems mods trie: Rust.Item list = [
+                if Namespace.Trie.isLeaf trie then
+                    let modNames = List.rev mods
+                    for filePath in trie.Values do
+                        let modName = getImportModuleName com filePath
+                        let useItem = mkGlobUseItem [] ("crate"::modName::modNames)
+                        yield useItem |> mkPublicItem
+                for KeyValue(key, trie) in trie.Children do
+                    let items = toItems (key::mods) trie
+                    let modItem = mkModItem [] key items
+                    yield modItem |> mkPublicItem
+            ]
+            // re-export globally merged namespaces at crate level
+            let nsItems =
+                com.GetAllNamespaces()
+                |> Namespace.Trie.ofSeq
+                |> toItems []
+            nsItems
         else []
 
     let getEntryPointItems (com: IRustCompiler) ctx decls =
@@ -3269,7 +3337,6 @@ module Util =
                 makeLibCall com ctx None "Native" ("fix" + argCount) fixCallArgs
             else
                 fnBody
-        let closureExpr = mkClosureExpr true fnDecl fnBody
         let cloneStmts =
             // clone captured idents (in move closures)
             // skip non-local idents (e.g. module let bindings)
@@ -3283,8 +3350,16 @@ module Util =
                 letExpr |> mkSemiStmt)
             |> Seq.toList
         let closureExpr =
-            if List.isEmpty cloneStmts then closureExpr
-            else mkStmtBlockExpr (cloneStmts @ [closureExpr |> mkExprStmt])
+            if List.isEmpty cloneStmts then
+                mkClosureExpr true fnDecl fnBody
+            else
+                let fnBody =
+                    // additional captured idents cloning for recursive lambdas
+                    if isRecursive && not isTailRec then
+                        mkStmtBlockExpr (cloneStmts @ [fnBody |> mkExprStmt])
+                    else fnBody
+                let closureExpr = mkClosureExpr true fnDecl fnBody
+                mkStmtBlockExpr (cloneStmts @ [closureExpr |> mkExprStmt])
         let funcWrap = getLibraryImportName com ctx "Native" ("Func" + argCount)
         makeCall [funcWrap; "new"] None [closureExpr]
 
@@ -4078,6 +4153,39 @@ module Util =
         let isInternal, isPrivate = getVis com ctx memb.DeclaringEntity memb.IsInternal memb.IsPrivate
         memberAssocItem |> mkAssocItemWithVis isInternal isPrivate
 
+    let mergeNamespaceDecls (com: IRustCompiler) ctx decls =
+        // separate namespace decls from the others
+        let namespaceDecls, otherDecls =
+            decls
+            |> List.partition (function
+                | Fable.ModuleDeclaration d ->
+                    let ent = com.GetEntity(d.Entity)
+                    ent.IsNamespace
+                | _ -> false)
+        // merge namespace decls with the same name into a single decl
+        let namespaceDecls =
+            namespaceDecls
+            |> List.groupBy (function
+                | Fable.ModuleDeclaration d -> d.Name
+                | _ -> failwith "unreachable")
+            |> List.map (fun (key, decls) ->
+                match decls with
+                | [d] -> d // no merge needed
+                | _ ->
+                    let members =
+                        decls
+                        |> List.map (function
+                            | Fable.ModuleDeclaration d -> d.Members
+                            | _ -> [])
+                        |> List.concat
+                    match List.head decls with
+                    | Fable.ModuleDeclaration d ->
+                        Fable.ModuleDeclaration { d with Members = members }
+                    | d -> d
+            )
+        // return merged decls
+        List.append namespaceDecls otherDecls
+
     let transformModuleDecl (com: IRustCompiler) ctx (decl: Fable.ModuleDecl) =
         let ctx = { ctx with ModuleDepth = ctx.ModuleDepth + 1 }
         let memberDecls =
@@ -4086,6 +4194,7 @@ module Util =
             // this prioritizes non-module declaration transforms first,
             // so module imports can be properly deduped top to bottom.
             decl.Members
+            |> mergeNamespaceDecls com ctx
             |> List.map (fun decl ->
                 let lazyDecl = lazy (transformDecl com ctx decl)
                 match decl with
@@ -4093,11 +4202,14 @@ module Util =
                 | _ -> lazyDecl.Force() |> ignore // transform other decls first
                 lazyDecl)
             |> List.collect (fun lazyDecl -> lazyDecl.Force())
+
         if List.isEmpty memberDecls then
             [] // don't output empty modules
         else
             let ent = com.GetEntity(decl.Entity)
-            // if ent.IsNamespace then // maybe do something different
+            if ent.IsNamespace then
+                // add the namespace to a global list to be re-exported
+                com.AddNamespace(com.CurrentFile, ent.FullName)
             let useDecls =
                 let useItem = mkGlobUseItem [] ["super"]
                 let importItems = com.GetAllImports(ctx) |> transformImports com ctx
@@ -4134,6 +4246,20 @@ module Util =
         | Fable.ClassDeclaration decl ->
             transformClassDecl com ctx decl
 
+    let transformDeclarations (com: IRustCompiler) ctx decls =
+        let items =
+            decls
+            |> mergeNamespaceDecls com ctx
+            |> List.collect (transformDecl com ctx)
+        // wrap the last file in a module to consistently handle namespaces
+        if isLastFileInProject com then
+            let modPath = fixFileExtension com com.CurrentFile
+            let modName = getImportModuleName com modPath
+            let modItem = mkModItem [] modName items
+            let useItem = mkGlobUseItem [] [modName]
+            [modItem; useItem |> mkPublicItem]
+        else items
+
     // F# hash function is unstable and gives different results in different runs
     // Taken from fable-library/Util.ts. Possible variant in https://stackoverflow.com/a/1660613
     let stableStringHash (s: string) =
@@ -4161,7 +4287,7 @@ module Util =
         modulePath
 
     let getImportModuleName (com: IRustCompiler) (modulePath: string) =
-        let relPath = Path.getRelativePath com.CurrentFile modulePath
+        let relPath = Path.getRelativePath com.ProjectFile modulePath
         System.String.Format("module_{0:x}", stableStringHash relPath)
 
     let transformImports (com: IRustCompiler) ctx (imports: Import list): Rust.Item list =
@@ -4178,18 +4304,22 @@ module Util =
                     else
                         if isFableLibraryPath com import.Path
                         then ["fable_library_rust"]
-                        else ["crate"; import.ModuleName]
+                        else ["crate"]
                 match import.Selector with
                 | "" | "*" | "default" ->
-                    mkGlobUseItem [] modPath
+                    // let useItem = mkGlobUseItem [] modPath
+                    // [useItem]
+                    []
                 | _ ->
                     let parts = splitNameParts import.Selector
                     let alias =
                         if List.last parts <> import.LocalIdent
                         then Some(import.LocalIdent)
                         else None
-                    mkSimpleUseItem [] (modPath @ parts) alias
+                    let useItem = mkSimpleUseItem [] (modPath @ parts) alias
+                    [useItem]
             )
+            |> List.concat
         )
 
     let getIdentForImport (ctx: Context) (path: string) (selector: string) =
@@ -4198,14 +4328,20 @@ module Util =
         | _ -> splitNameParts selector |> List.last
         |> getUniqueNameInRootScope ctx
 
+    let fixFileExtension (com: IRustCompiler) (path: string) =
+        if path.EndsWith(".fs") then
+            let fileExt = com.Options.FileExtension
+            Path.ChangeExtension(path, fileExt)
+        else path
 
 module Compiler =
     open System.Collections.Generic
     open System.Collections.Concurrent
     open Util
 
-    // global list of import modules (across files)
-    let importModules = ConcurrentDictionary<string, string>()
+    // global list of import modules and namespaces (across files)
+    let importModules = ConcurrentDictionary<string, bool>()
+    let importNamespaces = ConcurrentDictionary<string * string, bool>()
 
     // per file
     type RustCompiler (com: Fable.Compiler) =
@@ -4223,11 +4359,7 @@ module Compiler =
                     |> addError com [] r
                 let isMacro = selector.EndsWith("!")
                 let selector = selector |> Fable.Naming.replaceSuffix "!" ""
-                let path =
-                    if path.EndsWith(".fs") then
-                        let fileExt = (self :> Compiler).Options.FileExtension
-                        Path.ChangeExtension(path, fileExt)
-                    else path
+                let path = fixFileExtension self path
                 let cacheKey =
                     let selector = selector.Replace(".", "::").Replace("`", "_")
                     if (isFableLibraryPath self path)
@@ -4243,18 +4375,16 @@ module Compiler =
                     | false, _ ->
                         let localIdent = getIdentForImport ctx path selector
                         let modulePath = getImportModulePath self path
-                        let moduleName = getImportModuleName self modulePath
                         let import = {
                             Selector = selector
                             LocalIdent = localIdent
-                            ModuleName = moduleName
                             ModulePath = modulePath
                             Path = path
                             Depths = [ctx.ModuleDepth]
                         }
                         // add import module to a global list (across files)
                         if path.Length > 0 && not (isFableLibraryPath self path) then
-                            importModules.TryAdd(modulePath, moduleName) |> ignore
+                            importModules.TryAdd(modulePath, true) |> ignore
 
                         imports.Add(cacheKey, import)
                         import
@@ -4279,7 +4409,14 @@ module Compiler =
                         ctx.UsedNames.RootScope.Remove(import.Value.LocalIdent) |> ignore
 
             member _.GetAllModules() =
-                importModules |> Seq.map (fun p -> p.Key, p.Value) |> Seq.toList
+                importModules.Keys |> Seq.toList
+
+            member _.GetAllNamespaces() =
+                importNamespaces.Keys |> Seq.toList
+
+            member self.AddNamespace(path, entFullName) =
+                let path = fixFileExtension self path
+                importNamespaces.TryAdd((path, entFullName), true) |> ignore
 
             member com.TransformExpr(ctx, e) = transformExpr com ctx e
 
@@ -4363,12 +4500,13 @@ module Compiler =
                 // mkInnerAttr "feature" ["destructuring_assignment"]
         ]
 
-        let entryPointItems = getEntryPointItems com ctx file.Declarations
+        let entryPointItems = file.Declarations |> getEntryPointItems com ctx
         let importItems = com.GetAllImports(ctx) |> transformImports com ctx
-        let declItems = List.collect (transformDecl com ctx) file.Declarations
-        let moduleItems = getModuleItems com ctx // global module imports
-        let crateItems = importItems @ declItems @ moduleItems @ entryPointItems
-        let innerAttrs = getInnerAttributes com ctx file.Declarations
+        let declItems = file.Declarations |> transformDeclarations com ctx
+        let modItems = getModuleItems com ctx // global module imports
+        let nsItems = getNamespaceItems com ctx // global namespace imports
+        let crateItems = importItems @ declItems @ modItems @ nsItems @ entryPointItems
+        let innerAttrs = file.Declarations |> getInnerAttributes com ctx
         let crateAttrs = topAttrs @ innerAttrs
         let crate = mkCrate crateAttrs crateItems
         crate

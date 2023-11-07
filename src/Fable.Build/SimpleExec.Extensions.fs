@@ -135,13 +135,14 @@ type Command with
         let args =
             CmdLine.concat [
                 CmdLine.empty
-                |> CmdLine.appendRaw "run"
-                |> CmdLine.appendPrefix "-c" "Release"
+                |> CmdLine.appendRaw "watch"
                 |> CmdLine.appendPrefix "--project" localFableDir
+                |> CmdLine.appendRaw "run"
+                // Without the release mode, Fable stack overflow when compiling the tests
+                |> CmdLine.appendPrefix "-c" "Release"
                 |> CmdLine.appendRaw "--"
 
                 args
-
             ]
             |> CmdLine.toString
 

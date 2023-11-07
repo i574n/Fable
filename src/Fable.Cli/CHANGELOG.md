@@ -6,6 +6,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 4.5.0 - 2023-11-07
+
+### Changed
+
+#### Python
+
+* Use `Any` type for all non-repeated generic arguments (by @dbrattli)
+* Don't generate unnecessary type type-vars if generic type is replaced by `Any` (by @dbrattli)
+* Generate new style `_T | None` instead of `Optional[_T]` (by @dbrattli)
+
+#### Rust
+
+* Support multiple namespaces sharing a prefix in the same file (by @ncave)
+* Support imports with the same namespace across multiple files (by @ncave)
+
+### Fixed
+
+#### JavaScript
+
+* Fix #3571: `[<AttachMembers>]` not compatible with f# member `this.Item` (by @ncave)
+
+## 4.4.1 - 2023-10-25
+
+### Changed
+
+#### All
+
+* Fix #3567: Turn off FCS warning 3560 by default (by @vzarytovskii)
+
+### Fixed
+
+#### Rust
+
+* Fixed recursive lambda captured idents cloning (by @ncave)
+
+## 4.4.0 - 2023-10-24
+
+### Changed
+
+#### All
+
+* Updated FCS to [bd66d54b1ac4dd0f252c0a37196c2ccd54628356](https://github.com/dotnet/fsharp/commits/bd66d54b1ac4dd0f252c0a37196c2ccd54628356) (by @ncave)
+
+#### JavaScript
+
+* Support (un)curry up to 20 arguments (by @MangelMaxime)
+
+#### Python
+
+* Remove support for Python 3.9. Add GH testing for Python 3.12 (by @dbrattli)
+* Support (un)curry up to 20 arguments (by @MangelMaxime)
+
+#### Dart
+
+* Support (un)curry up to 20 arguments (by @MangelMaxime)
+
+## 4.3.0 - 2023-10-14
+
 ### Fixed
 
 #### JavaScript
@@ -36,6 +94,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### Python
 
 * Added `Async.StartChild` (by @dbrattli)
+* Fix #3482: Revert removal of `Py.python` and `Py.expr_python` (by @dbrattli)
 
 ## 4.2.2 - 2023-10-14
 

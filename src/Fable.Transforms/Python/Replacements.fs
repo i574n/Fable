@@ -867,6 +867,12 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | "typedArrays" -> makeBoolConst com.Options.TypedArrays |> Some
         | "extension" -> makeStrConst com.Options.FileExtension |> Some
         | _ -> None
+    | "Fable.Core.Py", ("python" | "expr_python" as meth) ->
+        let isStatement = meth <> "expr_python"
+        match args with
+        | RequireStringConstOrTemplate com ctx r template::_ ->
+            emitTemplate r t [] isStatement template  |> Some
+        | _ -> None
     | "Fable.Core.PyInterop", _ ->
         match i.CompiledName, args with
         | Naming.StartsWith "import" suffix, _ ->
@@ -1767,6 +1773,21 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | "ToArray", Some ar, [] ->
         Helper.InstanceCall(ar, "to_array", t, args, ?loc = r)
         |> Some
+    | _ -> None
+
+let collectionExtensions (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName, thisArg, args with
+    | "AddRange", None, [ar; arg] ->
+        Helper.LibCall(com, "Array", "addRangeInPlace", t, [ arg; ar ], ?loc = r)
+        |> Some
+    | "InsertRange", None, [ar; idx; arg] ->
+        Helper.LibCall(com, "array", "insert_range_in_place", t, [ idx; arg; ar ], ?loc = r)
+        |> Some
+    | _ -> None
+
+let readOnlySpans (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName, args with
+    | "op_Implicit", [arg] -> arg |> Some
     | _ -> None
 
 let nativeArrayFunctions =
@@ -3790,6 +3811,8 @@ let private replacedModules =
            "System.Collections.IList", resizeArrays
            Types.icollectionGeneric, resizeArrays
            Types.icollection, resizeArrays
+           "System.Collections.Generic.CollectionExtensions", collectionExtensions
+           "System.ReadOnlySpan`1", readOnlySpans
            Types.hashset, hashSets
            Types.stack, bclType
            Types.queue, bclType
