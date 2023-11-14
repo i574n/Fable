@@ -2379,6 +2379,8 @@ module Util =
                 // when indexing an array, cast index to usize
                 let expr = expr |> mutableGetMut
                 let prop = prop |> mkCastExpr (primitiveType "usize")
+                let prop = mkMethodCallExpr "try_into" None prop []
+                let prop = mkMethodCallExpr "unwrap" None prop []
                 let left = getExpr range expr prop
                 mkAssignExpr left value
             | _ ->
