@@ -1,7 +1,7 @@
 {
   "type": "module",
   "name": "fable-compiler-js",
-  "version": "3.0.1",
+  "version": "3.3.0",
   "main": "index.js",
   "bin": {
     "fable": "index.js"
@@ -25,5 +25,9 @@
   "dependencies": {
     "fable-metadata": "^2.0.0",
     "fable-standalone": "^3.0.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.19.5",
+    "rollup": "^4.2.0"
   }
 }
