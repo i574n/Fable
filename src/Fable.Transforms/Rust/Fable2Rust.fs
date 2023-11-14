@@ -2376,11 +2376,11 @@ module Util =
             let prop = transformExpr com ctx idx
             match fableExpr.Type, idx.Type with
             | Fable.Array(t,_), Fable.Number(Int32, Fable.NumberInfo.Empty) ->
-                // when indexing an array, cast index to usize
                 let expr = expr |> mutableGetMut
+                let expr = makeCall ["core::ops::Deref::deref"] None [expr]
+                let expr = expr |> mutableGetMut
+                // when indexing an array, cast index to usize
                 let prop = prop |> mkCastExpr (primitiveType "usize")
-                let prop = mkMethodCallExpr "try_into" None prop []
-                let prop = mkMethodCallExpr "unwrap" None prop []
                 let left = getExpr range expr prop
                 mkAssignExpr left value
             | _ ->
