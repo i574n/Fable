@@ -2376,10 +2376,8 @@ module Util =
             let prop = transformExpr com ctx idx
             match fableExpr.Type, idx.Type with
             | Fable.Array(t,_), Fable.Number(Int32, Fable.NumberInfo.Empty) ->
-                let expr = expr |> mutableGetMut
-                let expr = makeCall ["core::ops::Deref::deref"] None [expr]
-                let expr = expr |> mutableGetMut
                 // when indexing an array, cast index to usize
+                let expr = expr |> mutableGetMut
                 let prop = prop |> mkCastExpr (primitiveType "usize")
                 let left = getExpr range expr prop
                 mkAssignExpr left value
