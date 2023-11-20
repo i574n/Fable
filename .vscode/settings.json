@@ -27,5 +27,10 @@
         "temp/tests/Rust/Cargo.toml"
     ],
     "editor.inlayHints.enabled": "offUnlessPressed",
-    "dotnet.defaultSolution": "disable"
+    "dotnet.defaultSolution": "disable",
+    "python.testing.pytestArgs": [
+        "temp"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true
 }
