@@ -590,7 +590,7 @@ module TypeInfo =
             | HasReferenceTypeAttribute ptrType ->
                 Some ptrType
             | ent ->
-                if ent.IsValueType then None else Some Lrc
+                if ent.IsValueType || ent.IsFSharpRecord then None else Some Lrc
 
         | _ -> None
 
@@ -1460,7 +1460,7 @@ module Util =
         let expr = transformIdent com ctx None ident
         makeCall [funcWrap; "from"] None [expr]
 
-    let maybeWrapSmartPtr com ctx ent expr =
+    let maybeWrapSmartPtr com ctx (ent : Fable.Entity) expr =
         match ent with
         | HasReferenceTypeAttribute a ->
             match a with
@@ -1476,7 +1476,8 @@ module Util =
                 expr |> makeArcValue com ctx
             | Types.result -> expr
             | _ ->
-                if ent.IsValueType then expr
+                if ent.IsValueType || ent.IsFSharpRecord
+                then expr
                 else expr |> makeLrcPtrValue com ctx
 
     let parameterIsByRefPreferred idx (parameters: Fable.Parameter list) =
