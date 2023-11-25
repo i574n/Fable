@@ -590,9 +590,7 @@ module TypeInfo =
             | HasReferenceTypeAttribute ptrType ->
                 Some ptrType
             | ent ->
-                if ent.IsValueType || (ent.IsFSharpRecord && ent.CompiledName.StartsWith "Mut" |> not)
-                then None
-                else Some Lrc
+                if ent.IsValueType then None else Some Lrc
 
         | _ -> None
 
@@ -1478,7 +1476,7 @@ module Util =
                 expr |> makeArcValue com ctx
             | Types.result -> expr
             | _ ->
-                if ent.IsValueType || (ent.IsFSharpRecord && ent.CompiledName.StartsWith "Mut" |> not)
+                if ent.IsValueType
                 then expr
                 else expr |> makeLrcPtrValue com ctx
 
