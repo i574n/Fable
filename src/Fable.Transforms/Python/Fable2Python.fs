@@ -1525,6 +1525,7 @@ module Util =
         | "set" -> Expression.identifier "__setitem__"
         | "get" -> Expression.identifier "__getitem__"
         | "has" -> Expression.identifier "__contains__"
+        | "delete" -> Expression.identifier "__delitem__"
         | n when n.EndsWith "get_Count" -> Expression.identifier "__len__" // TODO: find a better way
         | n when n.StartsWith("Symbol.iterator") ->
             let name = Identifier "__iter__"
@@ -1859,7 +1860,6 @@ module Util =
 
     let getUnionExprTag (com: IPythonCompiler) ctx r (fableExpr: Fable.Expr) =
         let expr, stmts = com.TransformAsExpr(ctx, fableExpr)
-
         let expr, stmts' = getExpr com ctx r expr (Expression.constant "tag")
 
         expr, stmts @ stmts'
@@ -3082,14 +3082,6 @@ module Util =
         // printfn "transformGet: %A" (fableExpr.Type)
 
         match kind with
-        | Fable.FieldGet { Name = "message" } ->
-            let func = Expression.name "str"
-            let left, stmts = com.TransformAsExpr(ctx, fableExpr)
-            Expression.call (func, [ left ]), stmts
-        | Fable.FieldGet { Name = "push" } ->
-            let attr = Identifier("append")
-            let value, stmts = com.TransformAsExpr(ctx, fableExpr)
-            Expression.attribute (value = value, attr = attr, ctx = Load), stmts
         | Fable.ExprGet(TransformExpr com ctx (prop, stmts)) ->
             let expr, stmts' = com.TransformAsExpr(ctx, fableExpr)
             let expr, stmts'' = getExpr com ctx range expr prop
@@ -3942,7 +3934,7 @@ module Util =
             transformFunctionWithAnnotations com ctx name args body
             |||> makeArrowFunctionExpression com ctx name
 
-        | Fable.ObjectExpr([], _typ, None) -> Expression.none, []
+        | Fable.ObjectExpr([], _typ, None) -> Expression.dict (), []
         | Fable.ObjectExpr(members, typ, baseCall) ->
             // printfn "members: %A" (members, typ)
             transformObjectExpr com ctx members typ baseCall
@@ -3967,14 +3959,6 @@ module Util =
                      _,
                      _range) -> transformAsArray com ctx expr info
 
-        | Fable.Call(Fable.Get(expr, Fable.FieldGet { Name = name }, _, _),
-                     _info,
-                     _,
-                     _range) when name.ToLower() = "tostring" ->
-            let func = Expression.name "str"
-            let left, stmts = com.TransformAsExpr(ctx, expr)
-            Expression.call (func, [ left ]), stmts
-
         | Fable.Call(Fable.Get(expr, Fable.FieldGet { Name = "Equals" }, _, _),
                      { Args = [ arg ] },
                      _,
@@ -3982,25 +3966,6 @@ module Util =
             let right, stmts = com.TransformAsExpr(ctx, arg)
             let left, stmts' = com.TransformAsExpr(ctx, expr)
             Expression.compare (left, [ Eq ], [ right ]), stmts @ stmts'
-
-        | Fable.Call(Fable.Get(expr, Fable.FieldGet { Name = "split" }, _, _),
-                     { Args = [ Fable.Value(kind = Fable.StringConstant "") ] },
-                     _,
-                     _range) ->
-            let func = Expression.name "list"
-            let value, stmts = com.TransformAsExpr(ctx, expr)
-            Expression.call (func, [ value ]), stmts
-
-        | Fable.Call(Fable.Get(expr,
-                               Fable.FieldGet { Name = "charCodeAt" },
-                               _,
-                               _),
-                     _info,
-                     _,
-                     _range) ->
-            let func = Expression.name "ord"
-            let value, stmts = com.TransformAsExpr(ctx, expr)
-            Expression.call (func, [ value ]), stmts
 
         | Fable.Call(callee, info, _, range) ->
             transformCall com ctx range callee info

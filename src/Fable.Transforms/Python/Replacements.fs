@@ -648,7 +648,9 @@ let toList com returnType expr =
     Helper.LibCall(com, "list", "ofSeq", returnType, [ expr ])
 
 let stringToCharArray t e =
-    Helper.InstanceCall(e, "split", t, [ makeStrConst "" ])
+    //Helper.InstanceCall(e, "split", t, [ makeStrConst "" ])
+    // Write as global call `list` instead
+    Helper.GlobalCall("list", t, [ e ])
 
 let toSeq t (e: Expr) =
     match e.Type with
@@ -2193,7 +2195,7 @@ let operators
                 ?loc = r
             )
             |> Some
-        | ExprType(Number(_, _)) :: _ ->
+        | ExprType(Number(_)) :: _ ->
             Helper.LibCall(
                 com,
                 "long",
@@ -2829,7 +2831,7 @@ let resizeArrays
     | "set_Item", Some ar, [ idx; value ] -> setExpr r ar idx value |> Some
     | "Add", Some ar, [ arg ] ->
         "void ($0)"
-        |> emitExpr r t [ Helper.InstanceCall(ar, "push", t, [ arg ]) ]
+        |> emitExpr r t [ Helper.InstanceCall(ar, "append", t, [ arg ]) ]
         |> Some
     | "Remove", Some ar, [ arg ] ->
         let args =
@@ -4625,7 +4627,8 @@ let exceptions
     | ".ctor", _ ->
         Helper.ConstructorCall(makeIdentExpr "Exception", t, args, ?loc = r)
         |> Some
-    | "get_Message", Some e -> getFieldWith r t e "message" |> Some
+    | "get_Message", Some e ->
+        Helper.GlobalCall("str", t, [ thisArg.Value ], ?loc = r) |> Some
     | "get_StackTrace", Some e -> getFieldWith r t e "stack" |> Some
     | _ -> None
 
@@ -5229,46 +5232,16 @@ let timeSpans
     (args: Expr list)
     =
     // let callee = match i.callee with Some c -> c | None -> i.args.Head
+
     match i.CompiledName with
     | ".ctor" ->
-        let meth =
-            match args with
-            | [ ticks ] -> "fromTicks"
-            | _ -> "create"
-
         Helper.LibCall(
             com,
             "time_span",
-            meth,
+            "create",
             t,
             args,
             i.SignatureArgTypes,
-            ?loc = r
-        )
-        |> Some
-    | "FromMilliseconds" ->
-        //TypeCast(args.Head, t) |> Some
-        Helper.LibCall(
-            com,
-            "time_span",
-            "from_milliseconds",
-            t,
-            args,
-            i.SignatureArgTypes,
-            ?thisArg = thisArg,
-            ?loc = r
-        )
-        |> Some
-    | "get_TotalMilliseconds" ->
-        //TypeCast(thisArg.Value, t) |> Some
-        Helper.LibCall(
-            com,
-            "time_span",
-            "to_milliseconds",
-            t,
-            args,
-            i.SignatureArgTypes,
-            ?thisArg = thisArg,
             ?loc = r
         )
         |> Some
@@ -5298,6 +5271,8 @@ let timeSpans
             |> addError com ctx.InlinePath r
 
             None
+    | "get_Nanoseconds"
+    | "get_TotalNanoseconds" -> None
     | meth ->
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
 
