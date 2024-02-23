@@ -2810,30 +2810,36 @@ module Util =
                 let ent = com.GetEntity(entRef)
                 assert (ent.IsFSharpUnion)
                 // let genArgsOpt = transformGenArgs com ctx genArgs // TODO:
-                let unionCase = ent.UnionCases |> List.item tag
+                let unionCase = ent.UnionCases |> List.tryItem tag
 
                 let fields =
-                    match fableExpr with
-                    | Fable.IdentExpr ident ->
+                    match fableExpr, unionCase with
+                    | Fable.IdentExpr ident, Some unionCase ->
                         unionCase.UnionCaseFields
                         |> List.mapi (fun i _field ->
                             let fieldName = $"{ident.Name}_{tag}_{i}"
                             makeFullNameIdentPat fieldName
                         )
-                    | _ ->
+                    | _, Some unionCase ->
                         if List.isEmpty unionCase.UnionCaseFields then
                             []
                         else
                             [ WILD_PAT ]
+                    | _ ->
+                        []
 
-                let unionCaseName = getUnionCaseName com ctx entRef unionCase
-                let pat = makeUnionCasePat unionCaseName fields
+                match unionCase with
+                | Some unionCase ->
+                    let unionCaseName = getUnionCaseName com ctx entRef unionCase
+                    let pat = makeUnionCasePat unionCaseName fields
 
-                let expr =
-                    fableExpr
-                    |> prepareRefForPatternMatch com ctx fableExpr.Type (tryGetIdentName fableExpr)
+                    let expr =
+                        fableExpr
+                        |> prepareRefForPatternMatch com ctx fableExpr.Type (tryGetIdentName fableExpr)
 
-                mkLetExpr pat expr
+                    mkLetExpr pat expr
+                | None ->
+                    mkMacroExpr "unreachable" []
             | _ -> failwith "Should not happen"
 
     let transformSwitch (com: IRustCompiler) ctx (evalExpr: Fable.Expr) cases defaultCase targets : Rust.Expr =
@@ -3886,7 +3892,7 @@ module Util =
             mkClosureExpr false fnDecl value
 
         let valueStmt =
-            mkMethodCallExpr "get_or_init" None callee [ closureExpr ]
+            mkMethodCallExpr "get_or_insert_with" None callee [ closureExpr ]
             |> makeClone
             |> mkExprStmt
 
@@ -3959,9 +3965,10 @@ module Util =
 
         let body =
             if memb.IsInstance && not (memb.IsConstructor) then
-                let ident = makeIdent selfName
-                let thisArg = makeIdentExpr (rawIdent "self")
-                Fable.Let(ident, thisArg, body)
+                // let ident = makeIdent selfName
+                // let thisArg = makeIdentExpr (rawIdent "this_")
+                // Fable.Let(ident, thisArg, body)
+                body
             else
                 body
 

@@ -45,6 +45,14 @@ mod NonSyncLazy {
                 }
             }
         }
+
+        #[inline]
+        pub fn get_or_insert_with<F>(&self, f: F) -> &T
+        where
+            F: FnOnce() -> T,
+        {
+            self.get_or_init(f)
+        }
     }
 
     // #[derive(Clone)]

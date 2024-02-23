@@ -7,7 +7,7 @@
   <!-- <Import Project="fssrgen.targets" /> -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net9.0</TargetFramework>
     <!-- <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference> -->
   </PropertyGroup>
   <ItemGroup>
