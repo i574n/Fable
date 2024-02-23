@@ -27,7 +27,7 @@ let throwsAnyError (f: unit -> 'a) : unit =
             f () |> ignore
             true
         with e ->
-            print $"Got expected error: %s{string e}"
+            print $"Got expected error: %s{string<exn> e}"
             false
 
     if success then
@@ -36,12 +36,6 @@ let throwsAnyError (f: unit -> 'a) : unit =
 let main () =
     testCase "Array.length works"
     <| fun () ->
-        let xs =
-            [|
-                "a"
-                "a"
-                "a"
-                "a"
-            |]
+        let xs = [| "a"; "a"; "a"; "a" |]
 
         Array.length xs |> equal 4

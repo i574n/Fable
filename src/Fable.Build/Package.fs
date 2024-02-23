@@ -23,7 +23,7 @@ let handle (args: string list) =
     Directory.clean packageDestination
 
     let fableCliVersion =
-        "900.0.0-local-build-" + DateTime.Now.ToString("yyyyMMdd-HHhmm")
+        "4.999.0-local-build-" + DateTime.Now.ToString("yyyyMMdd-HHhmm")
 
     let compilerFsPath =
         Path.Resolve("src", "Fable.Transforms", "Global", "Compiler.fs")
@@ -33,8 +33,8 @@ let handle (args: string list) =
     Publish.updateLibraryVersionInFableTransforms
         fableCliVersion
         {|
-            JavaScript =
-                Npm.getVersionFromProjectDir ProjectDir.temp_fable_library
+            JavaScript = Npm.getVersionFromProjectDir ProjectDir.temp_fable_library_js
+            TypeScript = Npm.getVersionFromProjectDir ProjectDir.temp_fable_library_ts
         |}
 
     Command.Run(
@@ -53,7 +53,7 @@ let handle (args: string list) =
     File.WriteAllText(compilerFsPath, compilerFsOriginalContent)
 
     let fableCoreVersion =
-        "900.0.0-local-build-" + DateTime.Now.ToString("yyyyMMdd-HHhmm")
+        "4.999.0-local-build-" + DateTime.Now.ToString("yyyyMMdd-HHhmm")
 
     Command.Run(
         "dotnet",
@@ -73,5 +73,5 @@ let handle (args: string list) =
 Use the following commands to install them:
 
 - Fable.Cli: dotnet tool update fable --version {fableCliVersion} --add-source {packageDestination}
-- Fable.Core: dotnet add package Fable.Core --version {fableCoreVersion} --add-source {packageDestination}
+- Fable.Core: dotnet add package Fable.Core --version {fableCoreVersion} --source {packageDestination}
     """

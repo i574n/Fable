@@ -140,8 +140,7 @@ module Output =
         write ctx id.Name
 
     let withPrecedence ctx prec f =
-        let useParens =
-            prec > ctx.Precedence || (prec = 14 && ctx.Precedence = 14)
+        let useParens = prec > ctx.Precedence || (prec = 14 && ctx.Precedence = 14)
 
         let subCtx = { ctx with Precedence = prec }
 
@@ -202,7 +201,7 @@ module Output =
                 )
         | PhpConst cst ->
             match cst with
-            | PhpConstNumber n -> write ctx (string n)
+            | PhpConstNumber n -> write ctx (string<float> n)
             | PhpConstString s -> writeStr ctx s
             | PhpConstBool true -> write ctx "true"
             | PhpConstBool false -> write ctx "false"
@@ -336,8 +335,7 @@ module Output =
             else
                 write ctx " }"
         | PhpMacro(macro, args) ->
-            let regex =
-                System.Text.RegularExpressions.Regex("\$(?<n>\d)(?<s>\.\.\.)?")
+            let regex = System.Text.RegularExpressions.Regex("\$(?<n>\d)(?<s>\.\.\.)?")
 
             let matches = regex.Matches(macro)
             let mutable pos = 0
@@ -390,7 +388,7 @@ module Output =
             write ctx s
             write ctx "' => "
         | PhpArrayInt n ->
-            write ctx (string n)
+            write ctx (string<int> n)
             write ctx " => "
         | PhpArrayNoIndex -> ()
 
@@ -423,7 +421,7 @@ module Output =
                 match case with
                 | IntCase i ->
                     writei casesCtx "case "
-                    write casesCtx (string i)
+                    write casesCtx (string<int> i)
                 | StringCase s ->
                     writei casesCtx "case '"
                     write casesCtx s
@@ -442,7 +440,7 @@ module Output =
             match level with
             | Some l ->
                 write ctx " "
-                write ctx (string level)
+                write ctx (string<int option> level)
             | None -> ()
 
             writeln ctx ";"
@@ -708,7 +706,7 @@ module Output =
             }
 
         for i, d in file.Decls do
-            writeln ctx ("#" + string i)
+            writeln ctx ("#" + string<int> i)
             writeDecl ctx d
             writeln ctx ""
 

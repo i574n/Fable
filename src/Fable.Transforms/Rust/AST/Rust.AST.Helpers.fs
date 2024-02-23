@@ -14,15 +14,7 @@ type HashSet<'T> = System.Collections.Generic.HashSet<'T>
 [<AutoOpen>]
 module Naming =
 
-    let topKeywords =
-        HashSet(
-            [
-                "crate"
-                "self"
-                "super"
-                "Self"
-            ]
-        )
+    let topKeywords = HashSet([ "crate"; "self"; "super"; "Self" ])
 
     let allKeywords = HashSet(kw.RustKeywords)
     let rustPrelude = HashSet(kw.RustPrelude)
@@ -53,13 +45,7 @@ module Naming =
             stripRaw ident // no need to keep it raw here
 
     let splitNameParts (name: string) =
-        name.Split(
-            [|
-                "."
-                "::"
-            |],
-            System.StringSplitOptions.RemoveEmptyEntries
-        )
+        name.Split([| "."; "::" |], System.StringSplitOptions.RemoveEmptyEntries)
         |> List.ofArray
 
 [<AutoOpen>]
@@ -138,11 +124,9 @@ module Tokens =
     let mkRawIdentToken symbol : token.Token =
         token.TokenKind.Ident(symbol, true) |> mkToken
 
-    let mkBoolToken symbol : token.Token =
-        mkBoolTokenLit symbol |> mkLiteralToken
+    let mkBoolToken symbol : token.Token = mkBoolTokenLit symbol |> mkLiteralToken
 
-    let mkCharToken symbol : token.Token =
-        mkCharTokenLit symbol |> mkLiteralToken
+    let mkCharToken symbol : token.Token = mkCharTokenLit symbol |> mkLiteralToken
 
     let mkIntToken symbol : token.Token =
         mkIntTokenLit symbol None |> mkLiteralToken
@@ -312,11 +296,7 @@ module Literals =
 
     let mkFloatLit (value: Symbol) : Lit =
         let strValueWithDot =
-            if
-                value.Contains(".")
-                || value.Contains("e")
-                || value.Contains("E")
-            then
+            if value.Contains(".") || value.Contains("e") || value.Contains("E") then
                 value
             else
                 value + ".0"
@@ -329,11 +309,7 @@ module Literals =
 
     let mkFloat32Lit (value: Symbol) : Lit =
         let strValueWithDot =
-            if
-                value.Contains(".")
-                || value.Contains("e")
-                || value.Contains("E")
-            then
+            if value.Contains(".") || value.Contains("e") || value.Contains("E") then
                 value
             else
                 value + ".0"
@@ -346,11 +322,7 @@ module Literals =
 
     let mkFloat64Lit (value: Symbol) : Lit =
         let strValueWithDot =
-            if
-                value.Contains(".")
-                || value.Contains("e")
-                || value.Contains("E")
-            then
+            if value.Contains(".") || value.Contains("e") || value.Contains("E") then
                 value
             else
                 value + ".0"
@@ -421,9 +393,7 @@ module Paths =
             else
                 genArgs
 
-        idents
-        |> Seq.mapi (fun i ident -> mkPathSegment ident (args i))
-        |> mkPath
+        idents |> Seq.mapi (fun i ident -> mkPathSegment ident (args i)) |> mkPath
 
 [<AutoOpen>]
 module Patterns =
@@ -574,12 +544,7 @@ module MacroArgs =
             close = DUMMY_SP
         }
 
-    let mkDelimitedMacArgs
-        (delim: MacDelimiter)
-        (kind: token.TokenKind)
-        (tokens: token.Token seq)
-        : MacArgs
-        =
+    let mkDelimitedMacArgs (delim: MacDelimiter) (kind: token.TokenKind) (tokens: token.Token seq) : MacArgs =
         let count = tokens |> Seq.length
 
         let args: token.TokenStream =
@@ -588,10 +553,7 @@ module MacroArgs =
                 let ttt = tok |> token.TokenTree.Token
                 let sep = kind |> mkTokenTree
                 // if i < count - 1 then
-                [
-                    (ttt, token.Spacing.Joint)
-                    (sep, token.Spacing.Alone)
-                ]
+                [ (ttt, token.Spacing.Joint); (sep, token.Spacing.Alone) ]
             // else
             //     [ (ttt, token.Spacing.Alone) ]
             )
@@ -614,42 +576,22 @@ module MacCalls =
             prior_type_ascription = None
         }
 
-    let mkBraceCommaDelimitedMacCall
-        symbol
-        (tokens: token.Token seq)
-        : MacCall
-        =
+    let mkBraceCommaDelimitedMacCall symbol (tokens: token.Token seq) : MacCall =
         mkMacCall symbol MacDelimiter.Brace token.TokenKind.Comma tokens
 
     let mkBraceSemiDelimitedMacCall symbol (tokens: token.Token seq) : MacCall =
         mkMacCall symbol MacDelimiter.Brace token.TokenKind.Semi tokens
 
-    let mkBracketCommaDelimitedMacCall
-        symbol
-        (tokens: token.Token seq)
-        : MacCall
-        =
+    let mkBracketCommaDelimitedMacCall symbol (tokens: token.Token seq) : MacCall =
         mkMacCall symbol MacDelimiter.Bracket token.TokenKind.Comma tokens
 
-    let mkBracketSemiDelimitedMacCall
-        symbol
-        (tokens: token.Token seq)
-        : MacCall
-        =
+    let mkBracketSemiDelimitedMacCall symbol (tokens: token.Token seq) : MacCall =
         mkMacCall symbol MacDelimiter.Bracket token.TokenKind.Semi tokens
 
-    let mkParensCommaDelimitedMacCall
-        symbol
-        (tokens: token.Token seq)
-        : MacCall
-        =
+    let mkParensCommaDelimitedMacCall symbol (tokens: token.Token seq) : MacCall =
         mkMacCall symbol MacDelimiter.Parenthesis token.TokenKind.Comma tokens
 
-    let mkParensSemiDelimitedMacCall
-        symbol
-        (tokens: token.Token seq)
-        : MacCall
-        =
+    let mkParensSemiDelimitedMacCall symbol (tokens: token.Token seq) : MacCall =
         mkMacCall symbol MacDelimiter.Parenthesis token.TokenKind.Semi tokens
 
 [<AutoOpen>]
@@ -812,8 +754,7 @@ module Exprs =
     let mkArrayExpr (elements: Expr seq) : Expr =
         ExprKind.Array(mkVec elements) |> mkExpr
 
-    let mkTupleExpr (elements: Expr seq) : Expr =
-        ExprKind.Tup(mkVec elements) |> mkExpr
+    let mkTupleExpr (elements: Expr seq) : Expr = ExprKind.Tup(mkVec elements) |> mkExpr
 
     let mkUnitExpr () : Expr = mkTupleExpr []
 
@@ -890,14 +831,7 @@ module Exprs =
             else
                 CaptureBy.Ref
 
-        ExprKind.Closure(
-            captureBy,
-            Asyncness.No,
-            Movability.Movable,
-            decl,
-            body,
-            DUMMY_SP
-        )
+        ExprKind.Closure(captureBy, Asyncness.No, Movability.Movable, decl, body, DUMMY_SP)
         |> mkExpr
 
     let mkCallExpr (callee: Expr) args : Expr =
@@ -914,10 +848,7 @@ module Exprs =
         let segment = mkPathSegment ident genArgs
 
         match callee.kind, args with
-        | ExprKind.MethodCall(seg, args2, _), [] when
-            seg = segment && args2.Count = 1
-            ->
-            callee
+        | ExprKind.MethodCall(seg, args2, _), [] when seg = segment && args2.Count = 1 -> callee
         | _ -> mkMethodCallExpr name genArgs callee args
 
     let mkMacCallExpr (mac: MacCall) : Expr = ExprKind.MacCall mac |> mkExpr
@@ -1024,12 +955,12 @@ module Generic =
         else
             args |> mkAngleBracketedArgs |> GenericArgs.AngleBracketed |> Some
 
-    let mkGenericTypeArgs (tys: Ty seq) : GenericArgs option =
+    let mkTypesGenericArgs (tys: Ty seq) : GenericArgs option =
         let args = tys |> Seq.map mkGenericTypeArg
         mkGenericArgs args
 
-    let mkParenArgs inputs output : GenericArgs option =
-        let genArgs: ParenthesizedArgs =
+    let mkParenGenericArgs inputs output : GenericArgs option =
+        let args: ParenthesizedArgs =
             {
                 span = DUMMY_SP
                 inputs_span = DUMMY_SP
@@ -1037,18 +968,13 @@ module Generic =
                 output = output
             }
 
-        genArgs |> GenericArgs.Parenthesized |> Some
+        args |> GenericArgs.Parenthesized |> Some
 
-    let mkConstraintArgs
-        (tys: Ty seq)
-        (constraints: (string * Ty) seq)
-        : GenericArgs option
-        =
+    let mkConstraintArgs (tys: Ty seq) (constraints: (string * Ty) seq) : GenericArgs option =
         let tyArgs = tys |> Seq.map mkGenericTypeArg
 
         let constraintArgs =
-            constraints
-            |> Seq.map (fun (name, ty) -> mkAssocTyConstraintArg name ty None)
+            constraints |> Seq.map (fun (name, ty) -> mkAssocTyConstraintArg name ty None)
 
         Seq.append tyArgs constraintArgs |> mkGenericArgs
 
@@ -1083,8 +1009,8 @@ module Bounds =
         GenericBound.Outlives(lifetime)
 
     let mkFnTraitGenericBound inputs output : GenericBound =
-        let args = mkParenArgs inputs output
-        let path = mkGenericPath [ rawIdent "Fn" ] args
+        let genArgs = mkParenGenericArgs inputs output
+        let path = mkGenericPath [ rawIdent "Fn" ] genArgs
         mkTraitGenericBound path
 
     let mkTypeTraitGenericBound names genArgs : GenericBound =
@@ -1114,6 +1040,8 @@ module Types =
         TyKind.BareFn(mkBareFnTy unsafety ext genParams fnDecl) |> mkTy
 
     let mkInferTy () : Ty = TyKind.Infer |> mkTy
+
+    let mkNeverTy () : Ty = TyKind.Never |> mkTy
 
     let mkImplSelfTy () : Ty = TyKind.ImplicitSelf |> mkTy
 
@@ -1154,8 +1082,7 @@ module Types =
 
     let mkPathTy path : Ty = TyKind.Path(None, path) |> mkTy
 
-    let mkGenericPathTy names genArgs : Ty =
-        mkGenericPath names genArgs |> mkPathTy
+    let mkGenericPathTy names genArgs : Ty = mkGenericPath names genArgs |> mkPathTy
 
     let mkArrayTy ty (size: Expr) : Ty =
         TyKind.Array(ty, mkAnonConst size) |> mkTy
@@ -1167,7 +1094,7 @@ module Types =
     let mkUnitTy () : Ty = mkTupleTy []
 
     let mkGenericTy path tys : Ty =
-        mkGenericTypeArgs tys |> mkGenericPathTy path
+        mkTypesGenericArgs tys |> mkGenericPathTy path
 
     let mkEmitTy value tys : Ty =
         TyKind.EmitTypeExpression(value, mkVec tys) |> mkTy
@@ -1195,15 +1122,18 @@ module Params =
             kind = kind
         }
 
-    let mkParamFromType name ty isRef isMut : Param =
+    let mkTypedParam name ty isRef isMut : Param =
         let attrs = []
         let is_placeholder = false
         let pat = mkIdentPat name isRef isMut
         mkParam attrs ty pat is_placeholder
 
+    let mkTypedSelfParam ty isRef isMut : Param =
+        mkTypedParam (rawIdent "self") ty isRef isMut
+
     let mkInferredParam name isRef isMut : Param =
         let ty = mkInferTy ()
-        mkParamFromType name ty isRef isMut
+        mkTypedParam name ty isRef isMut
 
     let mkImplSelfParam isRef isMut : Param =
         let ty = mkImplSelfTy () |> mkRefTy None
@@ -1272,13 +1202,7 @@ module Funcs =
             output = output
         }
 
-    let mkFnKind
-        (header: FnHeader)
-        (decl: FnDecl)
-        (generics: Generics)
-        (body: Block option)
-        : FnKind
-        =
+    let mkFnKind (header: FnHeader) (decl: FnDecl) (generics: Generics) (body: Block option) : FnKind =
         let fnDef = Defaultness.Final
         let fnSig = mkFnSig header decl
         (fnDef, fnSig, generics, body)
@@ -1376,13 +1300,11 @@ module Items =
 
     let mkPublicCrateItem item : Item = { item with vis = PUBLIC_CRATE_VIS }
 
-    let mkInheritedAssocItem item : AssocItem =
-        { item with vis = INHERITED_VIS }
+    let mkInheritedAssocItem item : AssocItem = { item with vis = INHERITED_VIS }
 
     let mkPublicAssocItem item : AssocItem = { item with vis = PUBLIC_VIS }
 
-    let mkPublicCrateAssocItem item : AssocItem =
-        { item with vis = PUBLIC_CRATE_VIS }
+    let mkPublicCrateAssocItem item : AssocItem = { item with vis = PUBLIC_CRATE_VIS }
 
     let mkItemWithVis isInternal isPrivate item : Item =
         if isPrivate then
@@ -1446,13 +1368,7 @@ module Items =
     let mkTraitItem attrs name items bounds generics : Item =
         let ident = mkIdent name
 
-        ItemKind.Trait(
-            IsAuto.No,
-            Unsafety.No,
-            generics,
-            mkVec bounds,
-            mkVec items
-        )
+        ItemKind.Trait(IsAuto.No, Unsafety.No, generics, mkVec bounds, mkVec items)
         |> mkItem attrs ident
 
     let mkEnumItem attrs name variants generics : Item =

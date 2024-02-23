@@ -9,8 +9,8 @@ type BuildFableLibraryTypeScript() =
     inherit
         BuildFableLibrary(
             "typescript",
-            Path.Combine("src", "fable-library"),
-            Path.Combine("src", "fable-library"),
+            Path.Combine("src", "fable-library-ts"),
+            Path.Combine("src", "fable-library-ts"),
             Path.Combine("temp", "fable-library-ts"),
             Path.Combine("temp", "fable-library-ts"),
             Path.Combine(".", "temp", "fable-library-ts")
@@ -24,12 +24,10 @@ type BuildFableLibraryTypeScript() =
         Command.Run("npm", "install", workingDirectory = Build.Workspace.root)
 
         // Copy all *.ts files to the build directory from source directory
-        Directory.GetFiles(this.SourceDir, "*.ts")
-        |> Shell.copyFiles this.OutDir
+        Directory.GetFiles(this.SourceDir, "*.ts") |> Shell.copyFiles this.OutDir
 
         // Copy the tsconfig.json file to the build directory
-        let typeScriptConfig =
-            Path.Combine(this.SourceDir, "ts", "tsconfig.json")
+        let typeScriptConfig = Path.Combine(this.SourceDir, "ts", "tsconfig.json")
 
         Shell.copyFile this.OutDir typeScriptConfig
 
@@ -43,5 +41,5 @@ type BuildFableLibraryTypeScript() =
         Shell.copyFile this.OutDir packageJson
 
         // Copy the README.md file to the build directory
-        let readme = Path.Combine(this.SourceDir, "README.md")
-        Shell.copyFile this.OutDir readme
+        Shell.copyFile this.OutDir (Path.Combine(this.SourceDir, "CHANGELOG.md"))
+        Shell.copyFile this.OutDir (Path.Combine(this.SourceDir, "README.md"))

@@ -24,9 +24,7 @@ module Naming =
                 if m.Value.Length = 1 then
                     m.Value.ToLowerInvariant()
                 else
-                    m.Value.Substring(0, 1)
-                    + separator
-                    + m.Value.Substring(1, 1).ToLowerInvariant()
+                    m.Value.Substring(0, 1) + separator + m.Value.Substring(1, 1).ToLowerInvariant()
         )
 
     let applyCaseRule caseRule name =
@@ -164,12 +162,18 @@ module Naming =
 
     let reflectionSuffix = "_reflection"
 
+    let mutable uniqueIndex = 0
+
+    let getUniqueIndex () =
+        let idx = uniqueIndex
+        uniqueIndex <- uniqueIndex + 1
+        idx
 
     let preventConflicts conflicts originalName =
         let rec check originalName n =
             let name =
                 if n > 0 then
-                    originalName + "_" + (string n)
+                    originalName + "_" + (string<int> n)
                 else
                     originalName
 
@@ -200,15 +204,8 @@ module Naming =
                         let c = ident.[i]
 
                         if isIdentChar i c then
-                            string c
-                        elif
-                            c = '$'
-                            || c = '_'
-                            || c = ' '
-                            || c = '*'
-                            || c = '.'
-                            || c = '`'
-                        then
+                            string<char> c
+                        elif c = '$' || c = '_' || c = ' ' || c = '*' || c = '.' || c = '`' then
                             "_"
                         else
                             "_" + String.Format("{0:X}", int c).PadLeft(4, '0')
@@ -250,7 +247,7 @@ module Naming =
 
     let sanitizeIdent conflicts (name: string) part =
         let name =
-            if name.EndsWith("@") then
+            if name.EndsWith("@", StringComparison.Ordinal) then
                 $"_{name.Substring(0, name.Length - 1)}"
             else
                 name

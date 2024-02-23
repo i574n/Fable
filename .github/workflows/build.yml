@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ main ]
 
+permissions:
+    id-token: write
+    security-events: write
+
 jobs:
   # Separate job that verifies if all code was formatted correctly
   # Run `dotnet fantomas .` to format all code.
@@ -24,9 +28,27 @@ jobs:
       - name: Check F# code
         run: dotnet fantomas . --check
 
+  # Verify that Fable.sln can be restored
+  # See: https://github.com/fable-compiler/Fable/issues/3687
+  restore-project:
+    name: Check that solution can be restored
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+
+      - name: Restore project
+        run: dotnet restore Fable.sln
+
   # Separate build job for JavaScript
   build-javascript:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platform: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.platform }}
 
     steps:
     - uses: actions/checkout@v2
@@ -39,8 +61,13 @@ jobs:
     - name: Setup Node.js environment
       uses: actions/setup-node@v2.4.1
 
-    - name: Fable Tests - JavaScript
+    - name: Fable Tests - JavaScript (linux)
+      if: matrix.platform == 'ubuntu-latest'
       run: ./build.sh test javascript
+
+    - name: Fable Tests - JavaScript (Windows)
+      if: matrix.platform == 'windows-latest'
+      run: .\build.bat test javascript
 
   # Separate build job for TypeScript
   build-typescript:
@@ -192,3 +219,40 @@ jobs:
 
     - name: Fable Tests - Dart
       run: ./build.sh test dart
+
+  # Separate job to run F# analyzers
+  analyzers:
+      runs-on: windows-latest
+
+      steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+
+      - name: Restore tools
+        run: dotnet tool restore
+
+      - name: Build solution
+        run: dotnet build -c Release Fable.sln
+
+      - name: Run analyzers for Fable.AST
+        run: dotnet msbuild /t:AnalyzeFSharpProject src/Fable.AST/Fable.AST.fsproj
+        continue-on-error: true
+
+      - name: Run analyzers for Rust.AST
+        run: dotnet msbuild /t:AnalyzeFSharpProject src/Fable.Transforms/Rust/AST/Rust.AST.fsproj
+        continue-on-error: true
+
+      - name: Run analyzers Fable.Transforms
+        run: dotnet msbuild /t:AnalyzeFSharpProject src/Fable.Transforms/Fable.Transforms.fsproj
+        continue-on-error: true
+
+      - name: Run analyzers Fable.Compiler
+        run: dotnet msbuild /t:AnalyzeFSharpProject src/Fable.Compiler/Fable.Compiler.fsproj
+        continue-on-error: true
+
+      - name: Upload SARIF files
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+            sarif_file: src/reports

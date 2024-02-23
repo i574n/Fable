@@ -427,6 +427,10 @@ def substring(string: str, startIndex: int, length: int | None = None) -> str:
     return string[startIndex:]
 
 
+def to_char_array2(string: str, startIndex: int, length: int) -> list[str]:
+    return list(substring(string, startIndex, length))
+
+
 class StringComparison(IntEnum):
     CurrentCulture = 0
     CurrentCultureIgnoreCase = 1
@@ -551,9 +555,10 @@ def index_of_any(string: str, any_of: list[str], *args: int):
         raise ValueError("Invalid start_index and length")
 
     string = string[start_index:length]
-    for c in any_of:
-        index = string.find(c)
+    any_of_str = "".join(any_of)
+    for i, c in enumerate(string):
+        index = any_of_str.find(c)
         if index > -1:
-            return index + start_index
+            return i + start_index
 
     return -1

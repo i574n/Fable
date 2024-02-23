@@ -1,5 +1,7 @@
 namespace Fable.AST
 
+open System
+
 /// Each Position object consists of a line number (1-indexed) and a column number (0-indexed):
 type Position =
     {
@@ -24,7 +26,7 @@ type SourceLocation =
     member this.DisplayName =
         this.identifierName
         |> Option.bind (fun name ->
-            match name.IndexOf(";file:") with
+            match name.IndexOf(";file:", StringComparison.Ordinal) with
             | -1 -> Some name
             | 0 -> None
             | i -> name.Substring(0, i) |> Some
@@ -33,25 +35,17 @@ type SourceLocation =
     member this.File =
         this.identifierName
         |> Option.bind (fun name ->
-            match name.IndexOf(";file:") with
+            match name.IndexOf(";file:", StringComparison.Ordinal) with
             | -1 -> None
             | i -> name.Substring(i + ";file:".Length) |> Some
         )
 
-    static member Create
-        (
-            start: Position,
-            ``end``: Position,
-            ?file: string,
-            ?displayName: string
-        )
-        =
+    static member Create(start: Position, ``end``: Position, ?file: string, ?displayName: string) =
         let identifierName =
             match displayName, file with
             | None, None -> None
             | displayName, None -> displayName
-            | displayName, Some file ->
-                (defaultArg displayName "") + ";file:" + file |> Some
+            | displayName, Some file -> (defaultArg displayName "") + ";file:" + file |> Some
 
         {
             start = start
@@ -60,18 +54,12 @@ type SourceLocation =
         }
 
     static member (+)(r1, r2) =
-        SourceLocation.Create(
-            start = r1.start,
-            ``end`` = r2.``end``,
-            ?file = r1.File
-        )
+        SourceLocation.Create(start = r1.start, ``end`` = r2.``end``, ?file = r1.File)
 
-    static member Empty =
-        SourceLocation.Create(start = Position.Empty, ``end`` = Position.Empty)
+    static member Empty = SourceLocation.Create(start = Position.Empty, ``end`` = Position.Empty)
 
     override x.ToString() =
-        sprintf
-            $"(L%i{x.start.line},%i{x.start.column}-L%i{x.``end``.line},%i{x.``end``.column})"
+        sprintf $"(L%i{x.start.line},%i{x.start.column}-L%i{x.``end``.line},%i{x.``end``.column})"
 
 type NumberKind =
     | Int8

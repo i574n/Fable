@@ -1,21 +1,19 @@
 namespace Fable
 
 open System
-open System.Globalization
-open System.Text
 
 module Naming =
     open Fable.Core
     open System.Text.RegularExpressions
 
     let (|StartsWith|_|) (pattern: string) (txt: string) =
-        if txt.StartsWith(pattern) then
+        if txt.StartsWith(pattern, StringComparison.Ordinal) then
             txt.Substring(pattern.Length) |> Some
         else
             None
 
     let (|EndsWith|_|) (pattern: string) (txt: string) =
-        if txt.EndsWith(pattern) then
+        if txt.EndsWith(pattern, StringComparison.Ordinal) then
             txt.Substring(0, txt.Length - pattern.Length) |> Some
         else
             None
@@ -24,11 +22,7 @@ module Naming =
         let m = reg.Match(str)
 
         if m.Success then
-            m.Groups
-            |> Seq.cast<Group>
-            |> Seq.map (fun g -> g.Value)
-            |> Seq.toList
-            |> Some
+            m.Groups |> Seq.cast<Group> |> Seq.map (fun g -> g.Value) |> Seq.toList |> Some
         else
             None
 
@@ -54,13 +48,7 @@ module Naming =
     let unknown = "UNKNOWN"
 
     let isInFableModules (file: string) =
-        file.Split(
-            [|
-                '\\'
-                '/'
-            |]
-        )
-        |> Array.exists ((=) fableModules)
+        file.Split([| '\\'; '/' |]) |> Array.exists ((=) fableModules)
 
     let isIdentChar index (c: char) =
         let code = int c
@@ -91,7 +79,7 @@ module Naming =
                     let c = ident.[i]
 
                     if isIdentChar i c then
-                        string c
+                        string<char> c
                     else
                         replace c
                 )
@@ -101,38 +89,38 @@ module Naming =
 
     let sanitizeIdentForbiddenChars (ident: string) =
         ident
-        |> sanitizeIdentForbiddenCharsWith (fun c ->
-            "$" + String.Format("{0:X}", int c).PadLeft(4, '0')
-        )
+        |> sanitizeIdentForbiddenCharsWith (fun c -> "$" + String.Format("{0:X}", int c).PadLeft(4, '0'))
 
-    let replaceRegex (pattern: string) (value: string) (input: string) =
-        Regex.Replace(input, pattern, value)
+    let replaceRegex (pattern: string) (value: string) (input: string) = Regex.Replace(input, pattern, value)
 
     let replacePrefix (prefix: string) (value: string) (input: string) =
-        if input.StartsWith(prefix) then
+        if input.StartsWith(prefix, StringComparison.Ordinal) then
             value + (input.Substring(prefix.Length))
         else
             input
 
     let replaceSuffix (suffix: string) (value: string) (input: string) =
-        if input.EndsWith(suffix) then
+        if input.EndsWith(suffix, StringComparison.Ordinal) then
             (input.Substring(0, input.Length - suffix.Length)) + value
         else
             input
 
     let removeGetSetPrefix (s: string) =
-        if s.StartsWith("get_") || s.StartsWith("set_") then
+        if
+            s.StartsWith("get_", StringComparison.Ordinal)
+            || s.StartsWith("set_", StringComparison.Ordinal)
+        then
             s.Substring(4)
         else
             s
 
     let extensionMethodName (s: string) =
-        let i1 = s.IndexOf(".")
+        let i1 = s.IndexOf(".", StringComparison.Ordinal)
 
         if i1 < 0 then
             s
         else
-            let i2 = s.IndexOf(".", i1 + 1)
+            let i2 = s.IndexOf(".", i1 + 1, StringComparison.Ordinal)
 
             if i2 < 0 then
                 s
@@ -153,9 +141,7 @@ module Naming =
                 if m.Value.Length = 1 then
                     m.Value.ToLowerInvariant()
                 else
-                    m.Value.Substring(0, 1)
-                    + separator
-                    + m.Value.Substring(1, 1).ToLowerInvariant()
+                    m.Value.Substring(0, 1) + separator + m.Value.Substring(1, 1).ToLowerInvariant()
         )
 
     let applyCaseRule caseRule name =
@@ -358,7 +344,7 @@ module Naming =
         let rec check originalName n =
             let name =
                 if n > 0 then
-                    originalName + "_" + (string n)
+                    originalName + "_" + (string<int> n)
                 else
                     originalName
 
@@ -371,8 +357,8 @@ module Naming =
 
     // TODO: Move this to FSharp2Fable.Util
     type MemberPart =
-        | InstanceMemberPart of string * overloadSuffix: string
-        | StaticMemberPart of string * overloadSuffix: string
+        | InstanceMemberPart of memberCompiledName: string * overloadSuffix: string
+        | StaticMemberPart of memberCompiledName: string * overloadSuffix: string
         | NoMemberPart
 
         member this.Replace(f: string -> string) =
@@ -411,12 +397,7 @@ module Naming =
     let buildNameWithoutSanitation name part = buildName id name part
 
     /// This helper is intended for instance and static members in fable-library library compiled from F# (FSharpSet, FSharpMap...)
-    let buildNameWithoutSanitationFrom
-        (entityName: string)
-        isStatic
-        memberCompiledName
-        overloadSuffix
-        =
+    let buildNameWithoutSanitationFrom (entityName: string) isStatic memberCompiledName overloadSuffix =
         (if isStatic then
              entityName, StaticMemberPart(memberCompiledName, overloadSuffix)
          else
@@ -441,7 +422,7 @@ module Naming =
         if (String.IsNullOrEmpty(value)) then
             String.Empty
         else
-            let sb = StringBuilder(value.Length)
+            let sb = System.Text.StringBuilder(value.Length)
 
             for i = 0 to value.Length - 1 do
                 match value.[i] with

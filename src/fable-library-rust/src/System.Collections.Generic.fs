@@ -2,16 +2,31 @@ namespace System.Collections.Generic
 
 open Global_
 
-// type Comparer<'T when 'T: comparison>() =
-//     static member Default = Comparer<'T>()
-//     interface IComparer<'T> with
-//         member _.Compare(x, y) = LanguagePrimitives.GenericComparison x y
+type Comparer<'T when 'T: comparison>(comparison: 'T -> 'T -> int) =
 
-// type EqualityComparer<'T when 'T: equality>() =
-//     static member Default = EqualityComparer<'T>()
-//     interface IEqualityComparer<'T> with
-//         member _.Equals(x, y) = LanguagePrimitives.GenericEquality x y
-//         member _.GetHashCode(x) = LanguagePrimitives.GenericHash x
+    static member Default = Comparer<'T>(LanguagePrimitives.GenericComparison)
+
+    static member Create(comparison) = Comparer<'T>(comparison)
+
+    member _.Compare(x, y) = comparison x y
+
+    interface IComparer<'T> with
+        member _.Compare(x, y) = comparison x y
+
+type EqualityComparer<'T when 'T: equality>(equals: 'T -> 'T -> bool, getHashCode: 'T -> int) =
+
+    static member Default =
+        EqualityComparer<'T>(LanguagePrimitives.GenericEquality, LanguagePrimitives.GenericHash)
+
+    static member Create(equals, getHashCode) =
+        EqualityComparer<'T>(equals, getHashCode)
+
+    member _.Equals(x, y) = equals x y
+    member _.GetHashCode(x) = getHashCode x
+
+    interface IEqualityComparer<'T> with
+        member _.Equals(x, y) = equals x y
+        member _.GetHashCode(x) = getHashCode x
 
 type Stack<'T when 'T: equality> private (initialContents: 'T[], initialCount) =
     let mutable contents = initialContents
@@ -110,7 +125,12 @@ type Queue<'T when 'T: equality> private (initialContents, initialCount) =
     let mutable contents: 'T array = initialContents
     let mutable count = initialCount
     let mutable head = 0
-    let mutable tail = initialCount
+
+    let mutable tail =
+        if initialCount = contents.Length then
+            0
+        else
+            initialCount
 
     let size () = contents.Length
 
@@ -126,8 +146,13 @@ type Queue<'T when 'T: equality> private (initialContents, initialCount) =
             Array.blit contents 0 newBuffer (size () - head) tail
 
         head <- 0
-        tail <- count
         contents <- newBuffer
+
+        tail <-
+            if count = size () then
+                0
+            else
+                count
 
     let toSeq () =
         let head = head

@@ -1,15 +1,13 @@
 namespace Fable
 
 open System
-open System.Globalization
-open System.Text
 
 [<AutoOpen>]
 module Extensions =
     type String with
 
         member str.StartsWithAny([<ParamArray>] patterns: string[]) =
-            patterns |> Array.exists (fun p -> str.StartsWith(p))
+            patterns |> Array.exists (fun p -> str.StartsWith(p, StringComparison.Ordinal))
 
 module Dictionary =
     open System.Collections.Generic
@@ -224,10 +222,7 @@ module Patterns =
 
     let (|Run|) (f: 'a -> 'b) a = f a
 
-    let (|DicContains|_|)
-        (dic: System.Collections.Generic.IDictionary<'k, 'v>)
-        key
-        =
+    let (|DicContains|_|) (dic: System.Collections.Generic.IDictionary<'k, 'v>) key =
         let success, value = dic.TryGetValue key
 
         if success then
@@ -263,22 +258,13 @@ module Path =
             if path1.Length = 0 then
                 path1
             else
-                (path1.TrimEnd
-                    [|
-                        '\\'
-                        '/'
-                    |])
-                + "/"
+                (path1.TrimEnd [| '\\'; '/' |]) + "/"
 
         let path2 =
             if path2.StartsWith("./") then
                 path2.[2..]
             else
-                path2.TrimStart
-                    [|
-                        '\\'
-                        '/'
-                    |]
+                path2.TrimStart [| '\\'; '/' |]
 
         path1 + path2
 #else
@@ -359,13 +345,12 @@ module Path =
 
     /// If path belongs to a signature file (.fsi), replace the extension with .fs
     let ensureFsExtension (path: string) =
-        if path.EndsWith(".fsi") then
+        if path.EndsWith(".fsi", StringComparison.Ordinal) then
             path.Substring(0, path.Length - 1)
         else
             path
 
-    let normalizePathAndEnsureFsExtension (path: string) =
-        normalizePath path |> ensureFsExtension
+    let normalizePathAndEnsureFsExtension (path: string) = normalizePath path |> ensureFsExtension
 
     /// Checks if path starts with "./", ".\" or ".."
     let isRelativePath (path: string) =
@@ -388,12 +373,7 @@ module Path =
             false
 
     /// Creates a relative path from one file or folder to another.
-    let getRelativeFileOrDirPath
-        fromIsDir
-        (fromFullPath: string)
-        toIsDir
-        (toFullPath: string)
-        =
+    let getRelativeFileOrDirPath fromIsDir (fromFullPath: string) toIsDir (toFullPath: string) =
         // Algorithm adapted from http://stackoverflow.com/a/6244188
         let pathDifference (path1: string) (path2: string) =
             let mutable c = 0 //index up to which the paths are the same
@@ -448,11 +428,7 @@ module Path =
         // work either if the directory doesn't exist (e.g. `outDir`)
         let isDir = GetExtension >> String.IsNullOrWhiteSpace
         // let isDir = IO.Directory.Exists
-        getRelativeFileOrDirPath
-            (isDir fromFullPath)
-            fromFullPath
-            (isDir toFullPath)
-            toFullPath
+        getRelativeFileOrDirPath (isDir fromFullPath) fromFullPath (isDir toFullPath) toFullPath
 
     let getCommonPrefix (xs: string[] list) =
         let rec getCommonPrefix (prefix: string[]) =
@@ -478,12 +454,7 @@ module Path =
         let parent = split parent
         let child = split child
 
-        let commonPrefix =
-            getCommonPrefix
-                [
-                    parent
-                    child
-                ]
+        let commonPrefix = getCommonPrefix [ parent; child ]
 
         commonPrefix.Length >= parent.Length
 
@@ -493,9 +464,7 @@ module Path =
             filePath
             |> GetDirectoryName
             |> normalizePath
-            |> fun path ->
-                path.Split('/')
-                |> Array.filter (String.IsNullOrWhiteSpace >> not)
+            |> fun path -> path.Split('/') |> Array.filter (String.IsNullOrWhiteSpace >> not)
         )
         |> Seq.toList
         |> getCommonPrefix

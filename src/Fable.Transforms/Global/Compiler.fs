@@ -2,10 +2,10 @@ namespace Fable
 
 module Literals =
     [<Literal>]
-    let VERSION = "4.5.0"
+    let VERSION = "4.13.0"
 
     [<Literal>]
-    let JS_LIBRARY_VERSION = "1.1.1"
+    let JS_LIBRARY_VERSION = "1.1.0"
 
 type CompilerOptionsHelper =
     static member Make
@@ -57,8 +57,9 @@ type InlineExpr =
         ScopeIdents: Set<string>
     }
 
-type CompilerPlugins =
-    { MemberDeclarationPlugins: Map<Fable.EntityRef, System.Type> }
+type CompilerPlugins = { MemberDeclarationPlugins: Map<Fable.EntityRef, System.Type> }
+
+type SourceReader = string -> int * Lazy<string>
 
 type Compiler =
     abstract LibraryDir: string
@@ -73,8 +74,7 @@ type Compiler =
     abstract IsPrecompilingInlineFunction: bool
     abstract WillPrecompileInlineFunction: file: string -> Compiler
 
-    abstract GetImplementationFile:
-        fileName: string -> FSharpImplementationFileDeclaration list
+    abstract GetImplementationFile: fileName: string -> FSharpImplementationFileDeclaration list
 
     abstract GetRootModule: fileName: string -> string
     abstract TryGetEntity: Fable.EntityRef -> Fable.Entity option
@@ -82,12 +82,7 @@ type Compiler =
     abstract AddWatchDependency: file: string -> unit
 
     abstract AddLog:
-        msg: string *
-        severity: Severity *
-        ?range: SourceLocation *
-        ?fileName: string *
-        ?tag: string ->
-            unit
+        msg: string * severity: Severity * ?range: SourceLocation * ?fileName: string * ?tag: string -> unit
 
 type InlineExprLazy(f: Compiler -> InlineExpr) =
     let mutable value: InlineExpr voption = ValueNone
@@ -104,15 +99,9 @@ type InlineExprLazy(f: Compiler -> InlineExpr) =
 
 [<AutoOpen>]
 module CompilerExt =
-    let private expectedVersionMatchesActual
-        (expected: string)
-        (actual: string)
-        =
+    let private expectedVersionMatchesActual (expected: string) (actual: string) =
         try
-            let r =
-                System.Text.RegularExpressions.Regex(
-                    @"^(\d+)\.(\d+)(?:\.(\d+))?"
-                )
+            let r = System.Text.RegularExpressions.Regex(@"^(\d+)\.(\d+)(?:\.(\d+))?")
 
             let parse v =
                 let m = r.Match(v)
@@ -156,22 +145,16 @@ module CompilerExt =
                     | Fable.PrecompiledLib _ -> "precompiled"
                     | Fable.SourcePath _ -> "user"
 
-                failwith $"Cannot find {category} entity %s{entityRef.FullName}"
+                failwith $"Cannot find %s{category} entity %s{entityRef.FullName}"
 
-        member com.TryGetMember
-            (memberRef: Fable.MemberRef)
-            : Fable.MemberFunctionOrValue option
-            =
+        member com.TryGetMember(memberRef: Fable.MemberRef) : Fable.MemberFunctionOrValue option =
             match memberRef with
             | Fable.GeneratedMemberRef gen -> Some(gen :> _)
             | Fable.MemberRef(declaringEntity, memberInfo) ->
                 com.TryGetEntity(declaringEntity)
                 |> Option.bind (fun ent -> ent.TryFindMember(memberInfo))
 
-        member com.GetMember
-            (memberRef: Fable.MemberRef)
-            : Fable.MemberFunctionOrValue
-            =
+        member com.GetMember(memberRef: Fable.MemberRef) : Fable.MemberFunctionOrValue =
             match com.TryGetMember(memberRef) with
             | Some e -> e
             | None -> failwith $"Cannot find member ref: %A{memberRef}"
@@ -189,24 +172,13 @@ module CompilerExt =
                 member _.GetMember(ref) = com.GetMember(ref)
 
                 member _.LogWarning(msg, r) =
-                    com.AddLog(
-                        msg,
-                        Severity.Warning,
-                        ?range = r,
-                        fileName = com.CurrentFile
-                    )
+                    com.AddLog(msg, Severity.Warning, ?range = r, fileName = com.CurrentFile)
 
                 member _.LogError(msg, r) =
-                    com.AddLog(
-                        msg,
-                        Severity.Error,
-                        ?range = r,
-                        fileName = com.CurrentFile
-                    )
+                    com.AddLog(msg, Severity.Error, ?range = r, fileName = com.CurrentFile)
 
                 member _.GetOutputPath(file) =
-                    let file =
-                        Path.ChangeExtension(file, com.Options.FileExtension)
+                    let file = Path.ChangeExtension(file, com.Options.FileExtension)
 
                     match com.OutputDir with
                     | None -> file
@@ -214,23 +186,17 @@ module CompilerExt =
                         // TODO: This is a simplified version of the actual mechanism and will not work with deduplicated paths
                         let projDir = Path.GetDirectoryName(com.ProjectFile)
 
-                        let relPath =
-                            Path.getRelativeFileOrDirPath
-                                true
-                                projDir
-                                false
-                                file
+                        let relPath = Path.getRelativeFileOrDirPath true projDir false file
 
                         let relPath =
-                            if relPath.StartsWith("./") then
+                            if relPath.StartsWith("./", System.StringComparison.Ordinal) then
                                 relPath[2..]
                             else
                                 relPath
 
                         Path.Combine(outDir, relPath)
 
-                member this.GetOutputPath() =
-                    this.GetOutputPath(com.CurrentFile)
+                member this.GetOutputPath() = this.GetOutputPath(com.CurrentFile)
             }
 
         member com.ApplyPlugin<'Plugin, 'Input when 'Plugin :> PluginAttribute>
@@ -251,19 +217,9 @@ module CompilerExt =
                     | None -> input
                     | Some plugin ->
                         let pluginInstance =
-                            System.Activator.CreateInstance(
-                                plugin,
-                                List.toArray att.ConstructorArgs
-                            )
-                            :?> 'Plugin
+                            System.Activator.CreateInstance(plugin, List.toArray att.ConstructorArgs) :?> 'Plugin
 
-                        if
-                            not (
-                                expectedVersionMatchesActual
-                                    pluginInstance.FableMinimumVersion
-                                    Literals.VERSION
-                            )
-                        then
+                        if not (expectedVersionMatchesActual pluginInstance.FableMinimumVersion Literals.VERSION) then
                             failwithf
                                 "Plugin %s expects v%s but currently running Fable v%s"
                                 plugin.FullName
@@ -274,12 +230,7 @@ module CompilerExt =
                         transform pluginInstance helper input
                 )
 
-        member com.ApplyMemberDeclarationPlugin
-            (
-                file: Fable.File,
-                decl: Fable.MemberDecl
-            )
-            =
+        member com.ApplyMemberDeclarationPlugin(file: Fable.File, decl: Fable.MemberDecl) =
             match com.TryGetMember(decl.MemberRef) with
             | None -> decl
             | Some memb ->
@@ -290,12 +241,7 @@ module CompilerExt =
                     fun p h i -> p.Transform(h, file, i)
                 )
 
-        member com.ApplyMemberCallPlugin
-            (
-                memb: Fable.MemberFunctionOrValue,
-                expr: Fable.Expr
-            )
-            =
+        member com.ApplyMemberCallPlugin(memb: Fable.MemberFunctionOrValue, expr: Fable.Expr) =
             com.ApplyPlugin<MemberDeclarationPluginAttribute, _>(
                 com.Plugins.MemberDeclarationPlugins,
                 memb.Attributes,

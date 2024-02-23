@@ -4,39 +4,46 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
-    <Version>4.6.0</Version>
+    <Version>4.13.0</Version>
     <PackageReleaseNotes>## Added
 
 
-### All
+### JavaScript
 
-- Fix #3584: Unit type compiles to undeclared variable (by @ncave)
-
-### Python
-
-- Support `DateTime(..., DateTimeKind.Utc).ToString("O")` (by @MangelMaxime)
+- [GH-3759](https://github.com/fable-compiler/Fable/issues/3759) Add `StringBuilder.Chars` (by @MangelMaxime)
+- Added range overload for `String.ToCharArray` (by @ncave)
 
 ### Rust
 
-- Added `Guid.TryParse`, `Guid.ToByteArray` (by @ncave)
+- [GH-3761](https://github.com/fable-compiler/Fable/pull/3761) Added `StringBuilder.Chars`, `StringBuilder.Remove` and tests. (by @ncave)
+
+### Dart
+
+- [GH-3761](https://github.com/fable-compiler/Fable/pull/3761) Added `StringBuilder` support and tests. (by @ncave)
 
 ## Changed
 
 
-### All
+### JavaScript
 
-- Updated .NET metadata to 8.0.100 (by @ncave)
+- [GH-3761](https://github.com/fable-compiler/Fable/pull/3761) Updated `StringBuilder` to remove allocations where possible. (by @ncave)
+
+### Python
+
+- [GH-3761](https://github.com/fable-compiler/Fable/pull/3761) Updated `StringBuilder` to remove allocations where possible. (by @ncave)
 
 ## Fixed
 
 
+### JavaScript
+
+- [GH-3748](https://github.com/fable-compiler/Fable/pull/3748) Accessing an array out of bounds should emit an exception (by @MangelMaxime)
+- [GH-3748](https://github.com/fable-compiler/Fable/pull/3748) Setting an array out of bounds should emit an exception (by @MangelMaxime)
+- [GH-3761](https://github.com/fable-compiler/Fable/pull/3761) Fixed incorrect `StringBuilder.Remove` implementation. (by @ncave)
+
 ### Python
 
-- Fixed char to string type regression with binary operator (by @dbrattli)
-- Fix `DateTime(..., DateTimeKind.Local).ToString("O")` (by @MangelMaxime)
-- Fix calling `value.ToString(CultureInfo.InvariantCulture)` (by @MangelMaxime)
-- Fix #3605: Fix record equality comparison to works with optional fields (by @MangelMaxime and @dbrattli)
-- PR #3608: Rewrite `time_span.py` allowing for better precision by using a number representation intead of native `timedelta`. (by @MangelMaxime)
+- [GH-3761](https://github.com/fable-compiler/Fable/pull/3761) Fixed incorrect `StringBuilder.Remove` implementation. (by @ncave)
 
 </PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
@@ -49,7 +56,7 @@
     <OtherFlags>$(OtherFlags) --nowarn:3536</OtherFlags>
   </PropertyGroup>
   <ItemGroup>
-    <Content Include="..\..\temp\fable-library\**\*.*" PackagePath="fable-library\" />
+    <Content Include="..\..\temp\fable-library-js\**\*.*" PackagePath="fable-library-js\" />
     <Content Include="..\..\temp\fable-library-ts\**\*.*" PackagePath="fable-library-ts\" />
     <Content Include="..\..\temp\fable-library-py\**\*.*" PackagePath="fable-library-py\" />
     <Content Include="..\..\temp\fable-library-rust\**\*.*" PackagePath="fable-library-rust\" />
@@ -57,21 +64,20 @@
     <Content Include="..\fable-library-php\**\*.*" PackagePath="fable-library-php\" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Util.fsi" />
-    <Compile Include="Util.fs" />
     <Compile Include="Contributors.fs" />
-    <Compile Include="Globbing.fs" />
-    <Compile Include="ProjectCracker.fs" />
     <Compile Include="Printers.fs" />
     <Compile Include="FileWatchers.fsi" />
     <Compile Include="FileWatchers.fs" />
     <Compile Include="Pipeline.fs" />
+    <Compile Include="BuildalyzerCrackerResolver.fs" />
     <Compile Include="Main.fs" />
+    <Compile Include="CustomLogging.fs" />
     <Compile Include="Entry.fs" />
     <Content Include="CHANGELOG.md" />
     <Content Include="Properties\launchSettings.json" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Fable.Compiler\Fable.Compiler.fsproj" />
     <ProjectReference Include="..\Fable.Transforms\Fable.Transforms.fsproj" />
     <Reference Include="../../lib/fcs/FSharp.Compiler.Service.dll" />
     <Reference Include="../../lib/fcs/FSharp.DependencyManager.Nuget.dll" />
@@ -80,6 +86,7 @@
   <ItemGroup>
     <PackageReference Include="Buildalyzer" Version="5.0.1" />
     <PackageReference Include="FSharp.SystemTextJson" Version="1.2.42" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="8.0.0" />
     <PackageReference Include="source-map-sharp" Version="1.0.9" />
   </ItemGroup>
 </Project>
