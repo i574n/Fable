@@ -205,6 +205,9 @@ module Types =
     let timeOnly = "System.TimeOnly"
 
     [<Literal>]
+    let timer = "System.Timers.Timer"
+
+    [<Literal>]
     let int8 = "System.SByte"
 
     [<Literal>]
@@ -789,6 +792,11 @@ module AST =
     let (|StringConst|_|) =
         function
         | MaybeCasted(Value(StringConstant str, _)) -> Some str
+        | _ -> None
+
+    let (|StringTempl|_|) =
+        function
+        | MaybeCasted(Value(StringTemplate(None, [ fmt ], args), _)) -> Some(fmt, args)
         | _ -> None
 
     let (|BoolConst|_|) =
