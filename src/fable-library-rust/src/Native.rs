@@ -21,6 +21,7 @@ pub mod Native_ {
     pub use super::FuncType::*;
     pub use super::Lazy::*;
     pub use super::Mutable::*;
+    pub use crate::Reflection_::*;
 
     #[cfg(not(feature = "static_do_bindings"))]
     #[macro_export]
