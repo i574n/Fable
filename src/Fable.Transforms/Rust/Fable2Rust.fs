@@ -4310,7 +4310,7 @@ module Util =
             let body = formatString com ctx "{} {:?}" [ entNameExpr; fieldsAsTuple ]
 
             let fnBody = [ mkExprStmt body ] |> mkBlock |> Some
-            let fnRetTy = Fable.String |> transformType com ctx |> mkFnRetTy
+            let fnRetTy =  Fable.String |> transformType com ctx |> mkFnRetTy
             let fnDecl = mkFnDecl [ mkImplSelfParam false false ] fnRetTy
             let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl NO_GENERICS fnBody
             let attrs = []
@@ -4363,7 +4363,20 @@ module Util =
 
         [
             // implItemFor "Debug"
-            implItemFor "Display"
+
+            yield!
+                match self_ty.kind with
+                | AST.Types.TyKind.TraitObject (traits, AST.Types.TraitObjectSyntax.Dyn) ->
+                    match traits |> List.ofSeq with
+                    | [ AST.Types.GenericBound.Trait ({ trait_ref = { path = { segments = segments } } }, _) ] ->
+                        match segments |> List.ofSeq with
+                        | [ { ident = { name = "IDisposable" } } ] -> false
+                        | _ -> true
+                    | _ -> true
+                | _ -> true
+                |> function
+                    | true -> [ implItemFor "Display" ]
+                    | false -> []
         ]
 
     let op_impl_map =
