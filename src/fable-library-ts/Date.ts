@@ -776,8 +776,8 @@ export function addMonths(d: IDateTime, v: number) {
 
 export function subtract<Input extends number | IDateTime, Output = Input extends number ? IDateTime : number>(d: IDateTime, that: Input): Output {
   return typeof that === "number"
-    ? add(d, -that) as Output
-    : d.getTime() - that.getTime() as Output;
+    ? add(d, -that) as unknown as Output
+    : d.getTime() - that.getTime() as unknown as Output;
 }
 
 export function toLongDateString(d: IDateTime) {
