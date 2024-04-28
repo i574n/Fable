@@ -7,11 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 4.17.0 - 2024-04-23
+
+### Added
+
+* [Rust] Added support for XmlDoc comments (by @ncave)
+* [Rust] Support captures in object expressions (by @ncave)
+* [Rust] Added type extensions support (by @ncave)
+* [Rust] Added Char implementation module (by @ncave)
+
+### Fixed
+
+* [Python] Fixes for custom hash values (#3796) (by @dbrattli)
+* [Python] Fix for import of camelCased class (#3808) (by @dbrattli)
+* [JS/TS] Fixed optional args for reflection (by @ncave)
+* [JS/TS] Fixed type visibility when parent is namespace (by @ncave)
+* [JS/TS] Fixed DateTimeOffset.ToString with custom format (by @ncave)
+* [Rust] Fixed property get on constrained generic types (by @ncave)
+* [Rust] Fixed module member imports (by @ncave)
+
+## 4.16.0 - 2024-03-20
+
+### Added
+
+* [JS/TS] Add `ConditionalWeakTable` (by @chkn)
+
+### Fixed
+
+* [GH-3778](https://github.com/fable-compiler/Fable/issues/3778) [Python] Fixed custom hash values on Record types (by @dbrattli)
+
+## 4.15.0 - 2024-03-18
+
 ### Fixed
 
 * [JS/TS] Fixed `DateTime.Add` for `DateTimeKind.Unspecified` (by @ncave)
 * [Rust] Fixed deprecated `NaiveDateTime` usage in `DateTime` (by @ncave)
 * [Rust] Fixed generic interface implementation types (by @ncave)
+* [Rust] Fixed Dictionary constructor from IEnumerable (by @ncave)
+* [Rust] Fixed Seq.cast support for arrays and lists (by @ncave)
+* [JS/TS] `Boolean.tryParse` should not crash on `null` string (@goswinr)
 
 ### Added
 

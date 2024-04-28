@@ -187,19 +187,19 @@ pub mod Native_ {
     // Interface casting
     // -----------------------------------------------------------
 
-    #[cfg(feature = "lrc_ptr")]
-    #[macro_export]
-    macro_rules! interface_cast {
-        ($value:expr, $ifc:ty,) => {
-            LrcPtr::from((*$value).clone() as $ifc)
-        };
-    }
-
     #[cfg(not(feature = "lrc_ptr"))]
     #[macro_export]
     macro_rules! interface_cast {
         ($value:expr, $ifc:ty,) => {
             ($value as $ifc)
+        };
+    }
+
+    #[cfg(feature = "lrc_ptr")]
+    #[macro_export]
+    macro_rules! interface_cast {
+        ($value:expr, $ifc:ty,) => {
+            LrcPtr::from((*$value).clone() as $ifc)
         };
     }
 
@@ -262,9 +262,16 @@ pub mod Native_ {
         LrcPtr::new(MutCell::from(x))
     }
 
+    #[cfg(not(feature = "lrc_ptr"))]
     #[inline]
     pub fn box_<T: 'static>(x: T) -> LrcPtr<dyn Any> {
         LrcPtr::new(x) as LrcPtr<dyn Any>
+    }
+
+    #[cfg(feature = "lrc_ptr")]
+    #[inline]
+    pub fn box_<T: 'static>(x: T) -> LrcPtr<dyn Any> {
+        LrcPtr::from(Lrc::new(x) as Lrc<dyn Any>)
     }
 
     #[inline]
