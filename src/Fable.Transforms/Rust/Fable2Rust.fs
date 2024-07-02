@@ -4063,14 +4063,6 @@ module Util =
         let ctx = { ctx with IsAssocMember = true }
         let name = splitLast membName
 
-        let body =
-            if memb.IsInstance && not (memb.IsConstructor) then
-                let ident = makeIdent selfName
-                let thisArg = makeIdentExpr (rawIdent "self")
-                Fable.Let(ident, thisArg, body)
-            else
-                body
-
         let fnDecl, fnBody, genArgs =
             let parameters = memb.CurriedParameterGroups |> List.concat
             transformFunc com ctx parameters (Some name) args body
