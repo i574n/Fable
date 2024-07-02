@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 1.1.0 - 2024-05-23
+
+### Fixed
+
+* Make `dirname-filename-esm` a `dependency` instead of a `devDependency`
+
 ## 1.0.0 - 2024-02-12
 
 * Release stable version

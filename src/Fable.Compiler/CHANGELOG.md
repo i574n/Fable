@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 4.0.0-alpha-012 - 2024-06-17
+
+### Fixed
+
+* [JS/TS] Fixed unwrapping optional arguments (#3847) (by @ncave)
+
+## 4.0.0-alpha-011 - 2024-06-13
+
+### Changed
+
+* Fable 4.19.1
+
+## 4.0.0-alpha-010 - 2024-05-24
+
+### Fixed
+
+* [GH-3835](https://github.com/fable-compiler/Fable/pull/3835) [All] Use case insensitive comparison when searching for dependencies between fable packages (by @ThisFunctionalTom)
+
+## 4.0.0-alpha-009 - 2024-05-24
+
+### Changed
+
+* Fable 4.18.0
+
 ## 4.0.0-alpha-008 - 2024-02-27
 
 ### Fixed

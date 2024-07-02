@@ -134,8 +134,9 @@ type FsUnionCase(uci: FSharpUnionCase) =
             | _ -> None
         )
 
-    static member HasNamedFields(uci: FSharpUnionCase) =
-        not (uci.Fields.Count = 1 && uci.Fields[0].Name = "Item")
+    // static member HasNamedFields(uci: FSharpUnionCase) =
+    //     not (uci.Fields.Count = 1 && uci.Fields[0].Name = "Item")
+    //     true
 
     interface Fable.UnionCase with
         member _.Name = uci.Name
@@ -1064,6 +1065,17 @@ module Patterns =
 
     let (|MemberFullName|) (memb: FSharpMemberOrFunctionOrValue) = memb.FullName
 
+    let (|UnionCaseTesterFor|_|) (memb: FSharpMemberOrFunctionOrValue) =
+        match memb.DeclaringEntity with
+        | Some ent when ent.IsFSharpUnion ->
+            // if memb.IsUnionCaseTester then // TODO: this currently fails, use when fixed
+            if memb.IsPropertyGetterMethod && memb.LogicalName.StartsWith("get_Is") then
+                let unionCaseName = memb.LogicalName |> Naming.replacePrefix "get_Is" ""
+                ent.UnionCases |> Seq.tryFind (fun uc -> uc.Name = unionCaseName)
+            else
+                None
+        | _ -> None
+
     let (|RefType|_|) =
         function
         | TypeDefinition tdef as t when tdef.TryFullName = Some Types.refCell -> Some t
@@ -1422,7 +1434,19 @@ module TypeHelpers =
             // TODO: Check it's effectively measure?
             // TODO: Raise error if we cannot get the measure fullname?
             match tryDefinition genArgs[0] with
-            | Some(_, Some fullname) -> fullname
+            | Some(_, Some fullname) ->
+                // Not sure why, but when precompiling F# changes measure types to MeasureProduct<'M, MeasureOne>
+                match fullname with
+                | Types.measureProduct2 ->
+                    match
+                        (nonAbbreviatedType genArgs[0]).GenericArguments
+                        |> Seq.map (tryDefinition >> Option.bind snd)
+                        |> List.ofSeq
+                    with
+                    // TODO: generalize it to support aggregate units such as <m/s> or more complex
+                    | [ Some measure; Some Types.measureOne ] -> measure
+                    | _ -> fullname
+                | _ -> fullname
             | _ -> Naming.unknown
         else
             Naming.unknown
@@ -2147,13 +2171,18 @@ module Util =
             let fableMemberFunctionOrValue =
                 FsMemberFunctionOrValue(memb) :> Fable.MemberFunctionOrValue
 
+            let attributeFullNames =
+                fableMemberFunctionOrValue.Attributes
+                |> Seq.map (fun attr -> attr.Entity.FullName)
+                |> List.ofSeq
+
             Fable.MemberRef(
                 FsEnt.Ref(ent),
                 {
                     CompiledName = memb.CompiledName
                     IsInstance = memb.IsInstanceMember
                     NonCurriedArgTypes = nonCurriedArgTypes
-                    Attributes = fableMemberFunctionOrValue.Attributes
+                    AttributeFullNames = attributeFullNames
                 }
             )
         | ent ->
@@ -2182,13 +2211,18 @@ module Util =
             let fableMemberFunctionOrValue =
                 FsMemberFunctionOrValue(memb) :> Fable.MemberFunctionOrValue
 
+            let attributeFullNames =
+                fableMemberFunctionOrValue.Attributes
+                |> Seq.map (fun attr -> attr.Entity.FullName)
+                |> List.ofSeq
+
             Fable.MemberRef(
                 FsEnt.Ref(ent),
                 {
                     CompiledName = memb.CompiledName
                     IsInstance = memb.IsInstanceMember
                     NonCurriedArgTypes = None
-                    Attributes = fableMemberFunctionOrValue.Attributes
+                    AttributeFullNames = attributeFullNames
                 }
             )
         | ent ->
@@ -2681,7 +2715,7 @@ module Util =
 
         // Check if this is an interface or abstract/overriden method
         | _, Some entity when
-            entity.IsInterface
+            entity.IsInterface && memb.IsInstanceMember
             || memb.IsOverrideOrExplicitInterfaceImplementation
             || memb.IsDispatchSlot
             ->

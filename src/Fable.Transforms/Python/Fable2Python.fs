@@ -156,7 +156,7 @@ module Reflection =
 
                 let name = fi.Name |> Naming.toSnakeCase |> Helpers.clean
 
-                (Expression.tuple [ Expression.stringConstant (name); typeInfo ]), stmts
+                (Expression.tuple [ Expression.stringConstant name; typeInfo ]), stmts
             )
             |> Seq.toList
             |> Helpers.unzipArgs
@@ -383,6 +383,8 @@ module Reflection =
                     | [] -> yield Util.undefined None, []
                     | generics -> yield Expression.list generics, []
                     match tryPyConstructor com ctx ent with
+                    | Some(Expression.Name { Id = name }, stmts) ->
+                        yield Expression.name (name.Name |> Naming.toSnakeCase), stmts
                     | Some(cons, stmts) -> yield cons, stmts
                     | None -> ()
                     match ent.BaseType with
@@ -1127,7 +1129,8 @@ module Util =
 
     let ident (com: IPythonCompiler) (ctx: Context) (id: Fable.Ident) = com.GetIdentifier(ctx, id.Name)
 
-    let identAsExpr (com: IPythonCompiler) (ctx: Context) (id: Fable.Ident) = com.GetIdentifierAsExpr(ctx, id.Name)
+    let identAsExpr (com: IPythonCompiler) (ctx: Context) (id: Fable.Ident) =
+        com.GetIdentifierAsExpr(ctx, Naming.toSnakeCase id.Name)
 
     let thisExpr = Expression.name "self"
 
@@ -1668,7 +1671,6 @@ module Util =
     let transformCurry (com: IPythonCompiler) (ctx: Context) expr arity : Expression * Statement list =
         com.TransformAsExpr(ctx, Replacements.Api.curryExprAtRuntime com arity expr)
 
-
     let makeInteger (com: IPythonCompiler) (ctx: Context) r _t intName (x: obj) =
         let cons = libValue com ctx "types" intName
         let value = Expression.intConstant (x, ?loc = r)
@@ -1678,7 +1680,6 @@ module Util =
         let cons = libValue com ctx "types" floatName
         let value = Expression.floatConstant (x, ?loc = r)
         Expression.call (cons, [ value ], ?loc = r), []
-
 
     let transformValue (com: IPythonCompiler) (ctx: Context) r value : Expression * Statement list =
         match value with
@@ -1710,26 +1711,34 @@ module Util =
                     makeBinOp None Fable.String acc (makeStrConst part) BinaryPlus
                 )
             |> transformAsExpr com ctx
-        | Fable.NumberConstant(x, kind, _) ->
-            match kind, x with
-            | Decimal, (:? decimal as x) -> Py.Replacements.makeDecimal com r value.Type x |> transformAsExpr com ctx
-            | Int64, (:? int64 as x) -> makeInteger com ctx r value.Type "int64" x
-            | UInt64, (:? uint64 as x) -> makeInteger com ctx r value.Type "uint64" x
-            | Int8, (:? int8 as x) -> makeInteger com ctx r value.Type "int8" x
-            | UInt8, (:? uint8 as x) -> makeInteger com ctx r value.Type "uint8" x
-            | Int16, (:? int16 as x) -> makeInteger com ctx r value.Type "int16" x
-            | UInt16, (:? uint16 as x) -> makeInteger com ctx r value.Type "uint16" x
-            | Int32, (:? int32 as x) -> Expression.intConstant (x, ?loc = r), []
-            | UInt32, (:? uint32 as x) -> makeInteger com ctx r value.Type "uint32" x
-            //| _, (:? char as x) -> makeNumber com ctx r value.Type "char" x
-            | _, x when x = infinity -> Expression.name "float('inf')", []
-            | _, x when x = -infinity -> Expression.name "float('-inf')", []
-            | _, (:? float as x) when Double.IsNaN(x) -> Expression.name "float('nan')", []
-            | _, (:? float32 as x) when Single.IsNaN(x) ->
+        | Fable.NumberConstant(v, _) ->
+            match v with
+            | Fable.NumberValue.Int8 x -> makeInteger com ctx r value.Type "int8" x
+            | Fable.NumberValue.UInt8 x -> makeInteger com ctx r value.Type "uint8" x
+            | Fable.NumberValue.Int16 x -> makeInteger com ctx r value.Type "int16" x
+            | Fable.NumberValue.UInt16 x -> makeInteger com ctx r value.Type "uint16" x
+            | Fable.NumberValue.Int32 x -> Expression.intConstant (x, ?loc = r), []
+            | Fable.NumberValue.UInt32 x -> makeInteger com ctx r value.Type "uint32" x
+            | Fable.NumberValue.Int64 x -> makeInteger com ctx r value.Type "int64" x
+            | Fable.NumberValue.UInt64 x -> makeInteger com ctx r value.Type "uint64" x
+            // | Fable.NumberValue.Int128(u,l) -> Expression.intConstant (System.Int128(u,l), ?loc = r), []
+            // | Fable.NumberValue.UInt128(u,l) -> Expression.intConstant (System.UInt128(u,l), ?loc = r), []
+            | Fable.NumberValue.BigInt x -> Expression.intConstant (x, ?loc = r), []
+            | Fable.NumberValue.NativeInt x -> Expression.intConstant (x, ?loc = r), []
+            | Fable.NumberValue.UNativeInt x -> Expression.intConstant (x, ?loc = r), []
+            // TODO: special consts also need attention
+            | Fable.NumberValue.Float64 x when x = infinity -> Expression.name "float('inf')", []
+            | Fable.NumberValue.Float64 x when x = -infinity -> Expression.name "float('-inf')", []
+            | Fable.NumberValue.Float64 x when Double.IsNaN(x) -> Expression.name "float('nan')", []
+            | Fable.NumberValue.Float32 x when Single.IsNaN(x) ->
                 libCall com ctx r "types" "float32" [ Expression.stringConstant "nan" ], []
-            | _, (:? float32 as x) -> makeFloat com ctx r value.Type "float32" (float x)
-            | _, (:? float as x) -> Expression.floatConstant (x, ?loc = r), []
-            | _ -> Expression.intConstant (x, ?loc = r), []
+            | Fable.NumberValue.Float16 x when Single.IsNaN(x) ->
+                libCall com ctx r "types" "float32" [ Expression.stringConstant "nan" ], []
+            | Fable.NumberValue.Float16 x -> makeFloat com ctx r value.Type "float32" (float x)
+            | Fable.NumberValue.Float32 x -> makeFloat com ctx r value.Type "float32" (float x)
+            | Fable.NumberValue.Float64 x -> Expression.floatConstant (x, ?loc = r), []
+            | Fable.NumberValue.Decimal x -> Py.Replacements.makeDecimal com r value.Type x |> transformAsExpr com ctx
+            | _ -> addErrorAndReturnNull com r $"Numeric literal is not supported: %A{v}", []
         | Fable.NewArray(newKind, typ, kind) ->
             match newKind with
             | Fable.ArrayValues values -> makeArray com ctx values kind typ
@@ -2442,7 +2451,7 @@ module Util =
             stmts @ [ decl ] @ body
         else
             let value, stmts = transformBindingExprBody com ctx var value
-            let varName = com.GetIdentifierAsExpr(ctx, var.Name)
+            let varName = com.GetIdentifierAsExpr(ctx, Naming.toSnakeCase var.Name)
             let ta, stmts' = typeAnnotation com ctx None var.Type
             let decl = varDeclaration ctx varName (Some ta) value
             stmts @ stmts' @ decl
@@ -3741,7 +3750,8 @@ module Util =
 
             let expr, stmts' = makeFunctionExpression com ctx None (args, body, [], ta)
 
-            let name = com.GetIdentifier(ctx, entName + Naming.reflectionSuffix)
+            let name =
+                com.GetIdentifier(ctx, Naming.toSnakeCase entName + Naming.reflectionSuffix)
 
             expr |> declareModuleMember com ctx ent.IsPublic name None, stmts @ stmts'
 
@@ -4169,7 +4179,7 @@ module Util =
                 let decls =
                     if info.IsValue then
                         let value, stmts = transformAsExpr com ctx decl.Body
-                        let name = com.GetIdentifier(ctx, decl.Name)
+                        let name = com.GetIdentifier(ctx, Naming.toSnakeCase decl.Name)
                         let ta, _ = typeAnnotation com ctx None decl.Body.Type
 
                         stmts @ declareModuleMember com ctx info.IsPublic name (Some ta) value

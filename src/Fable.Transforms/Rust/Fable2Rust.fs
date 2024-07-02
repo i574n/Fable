@@ -1615,6 +1615,21 @@ module Util =
         //         let rest = List.rev rest |> List.map (fun e -> com.TransformExpr(ctx, e))
         //         rest @ [Expression.spreadElement(com.TransformExpr(ctx, last))]
         | args ->
+            let optionalArgs =
+                if args.Length < parameters.Length then
+                    parameters
+                    |> List.skip args.Length
+                    |> List.filter (fun p -> p.IsOptional)
+                    |> List.map (fun p ->
+                        match p.Type with
+                        | Fable.Option(t, isStruct) -> Fable.Value(Fable.NewOption(None, t, isStruct), None)
+                        | _ -> failwith "unreachable"
+                    )
+                else
+                    []
+
+            let args = List.append args optionalArgs
+
             let argsWithTypes =
                 if argTypes.Length = args.Length then
                     args |> List.zip argTypes |> List.map (fun (t, a) -> Some t, a)
@@ -1650,90 +1665,95 @@ module Util =
         else
             expr
 
-    let makeNumber com ctx r t kind (x: obj) =
-        match kind, x with
-        | Int8, (:? int8 as x) when x = System.SByte.MinValue -> mkGenericPathExpr ("i8" :: "MIN" :: []) None
-        | Int8, (:? int8 as x) when x = System.SByte.MaxValue -> mkGenericPathExpr ("i8" :: "MAX" :: []) None
-        | Int16, (:? int16 as x) when x = System.Int16.MinValue -> mkGenericPathExpr ("i16" :: "MIN" :: []) None
-        | Int16, (:? int16 as x) when x = System.Int16.MaxValue -> mkGenericPathExpr ("i16" :: "MAX" :: []) None
-        | Int32, (:? int32 as x) when x = System.Int32.MinValue -> mkGenericPathExpr ("i32" :: "MIN" :: []) None
-        | Int32, (:? int32 as x) when x = System.Int32.MaxValue -> mkGenericPathExpr ("i32" :: "MAX" :: []) None
-        | Int64, (:? int64 as x) when x = System.Int64.MinValue -> mkGenericPathExpr ("i64" :: "MIN" :: []) None
-        | Int64, (:? int64 as x) when x = System.Int64.MaxValue -> mkGenericPathExpr ("i64" :: "MAX" :: []) None
-        // | Int128, (:? System.Int128 as x) when x = System.Int128.MinValue ->
+    let makeNumber com ctx r t (v: Fable.NumberValue) =
+        match v with
+        | Fable.NumberValue.Int8 x when x = System.SByte.MinValue -> mkGenericPathExpr ("i8" :: "MIN" :: []) None
+        | Fable.NumberValue.Int8 x when x = System.SByte.MaxValue -> mkGenericPathExpr ("i8" :: "MAX" :: []) None
+        | Fable.NumberValue.Int16 x when x = System.Int16.MinValue -> mkGenericPathExpr ("i16" :: "MIN" :: []) None
+        | Fable.NumberValue.Int16 x when x = System.Int16.MaxValue -> mkGenericPathExpr ("i16" :: "MAX" :: []) None
+        | Fable.NumberValue.Int32 x when x = System.Int32.MinValue -> mkGenericPathExpr ("i32" :: "MIN" :: []) None
+        | Fable.NumberValue.Int32 x when x = System.Int32.MaxValue -> mkGenericPathExpr ("i32" :: "MAX" :: []) None
+        | Fable.NumberValue.Int64 x when x = System.Int64.MinValue -> mkGenericPathExpr ("i64" :: "MIN" :: []) None
+        | Fable.NumberValue.Int64 x when x = System.Int64.MaxValue -> mkGenericPathExpr ("i64" :: "MAX" :: []) None
+        // | Fable.NumberValue.Int128 x when x = System.Int128.MinValue ->
         //     mkGenericPathExpr ("i128"::"MIN"::[]) None
-        // | Int128, (:? System.Int128 as x) when x = System.Int128.MaxValue ->
+        // | Fable.NumberValue.Int128 x when x = System.Int128.MaxValue ->
         //     mkGenericPathExpr ("i128"::"MAX"::[]) None
 
-        // | UInt8, (:? uint8 as x) when x = System.Byte.MinValue ->
+        // | Fable.NumberValue.UInt8 x when x = System.Byte.MinValue ->
         //     mkGenericPathExpr ("u8"::"MIN"::[]) None
-        | UInt8, (:? uint8 as x) when x = System.Byte.MaxValue -> mkGenericPathExpr ("u8" :: "MAX" :: []) None
-        // | UInt16, (:? uint16 as x) when x = System.UInt16.MinValue ->
+        | Fable.NumberValue.UInt8 x when x = System.Byte.MaxValue -> mkGenericPathExpr ("u8" :: "MAX" :: []) None
+        // | Fable.NumberValue.UInt16 x when x = System.UInt16.MinValue ->
         //     mkGenericPathExpr ("u16"::"MIN"::[]) None
-        | UInt16, (:? uint16 as x) when x = System.UInt16.MaxValue -> mkGenericPathExpr ("u16" :: "MAX" :: []) None
-        // | UInt32, (:? uint32 as x) when x = System.UInt32.MinValue ->
+        | Fable.NumberValue.UInt16 x when x = System.UInt16.MaxValue -> mkGenericPathExpr ("u16" :: "MAX" :: []) None
+        // | Fable.NumberValue.UInt32, (:? uint32 as x) when x = System.UInt32.MinValue ->
         //     mkGenericPathExpr ("u32"::"MIN"::[]) None
-        | UInt32, (:? uint32 as x) when x = System.UInt32.MaxValue -> mkGenericPathExpr ("u32" :: "MAX" :: []) None
-        // | UInt64, (:? uint64 as x) when x = System.UInt64.MinValue ->
+        | Fable.NumberValue.UInt32 x when x = System.UInt32.MaxValue -> mkGenericPathExpr ("u32" :: "MAX" :: []) None
+        // | Fable.NumberValue.UInt64 x when x = System.UInt64.MinValue ->
         //     mkGenericPathExpr ("u64"::"MIN"::[]) None
-        | UInt64, (:? uint64 as x) when x = System.UInt64.MaxValue -> mkGenericPathExpr ("u64" :: "MAX" :: []) None
-        // | UInt128, (:? System.UInt128 as x) when x = System.UInt128.MinValue ->
+        | Fable.NumberValue.UInt64 x when x = System.UInt64.MaxValue -> mkGenericPathExpr ("u64" :: "MAX" :: []) None
+        // | Fable.NumberValue.UInt128 x when x = System.UInt128.MinValue ->
         //     mkGenericPathExpr ("u128"::"MIN"::[]) None
-        // | UInt128, (:? System.UInt128 as x) when x = System.UInt128.MaxValue ->
+        // | Fable.NumberValue.UInt128 x when x = System.UInt128.MaxValue ->
         //     mkGenericPathExpr ("u128"::"MAX"::[]) None
 
-        | Float32, (:? float32 as x) when System.Single.IsNaN(x) -> mkGenericPathExpr ("f32" :: "NAN" :: []) None
-        | Float64, (:? float as x) when System.Double.IsNaN(x) -> mkGenericPathExpr ("f64" :: "NAN" :: []) None
-        | Float32, (:? float32 as x) when System.Single.IsPositiveInfinity(x) ->
+        | Fable.NumberValue.Float32 x when System.Single.IsNaN(x) -> mkGenericPathExpr ("f32" :: "NAN" :: []) None
+        | Fable.NumberValue.Float64 x when System.Double.IsNaN(x) -> mkGenericPathExpr ("f64" :: "NAN" :: []) None
+        | Fable.NumberValue.Float32 x when System.Single.IsPositiveInfinity(x) ->
             mkGenericPathExpr ("f32" :: "INFINITY" :: []) None
-        | Float64, (:? float as x) when System.Double.IsPositiveInfinity(x) ->
+        | Fable.NumberValue.Float64 x when System.Double.IsPositiveInfinity(x) ->
             mkGenericPathExpr ("f64" :: "INFINITY" :: []) None
-        | Float32, (:? float32 as x) when System.Single.IsNegativeInfinity(x) ->
+        | Fable.NumberValue.Float32 x when System.Single.IsNegativeInfinity(x) ->
             mkGenericPathExpr ("f32" :: "NEG_INFINITY" :: []) None
-        | Float64, (:? float as x) when System.Double.IsNegativeInfinity(x) ->
+        | Fable.NumberValue.Float64 x when System.Double.IsNegativeInfinity(x) ->
             mkGenericPathExpr ("f64" :: "NEG_INFINITY" :: []) None
 
-        | NativeInt, (:? nativeint as x) ->
+        | Fable.NumberValue.NativeInt x ->
             let expr = mkIsizeLitExpr (abs x |> string<nativeint>)
             expr |> negateWhen (x < 0n)
-        | Int8, (:? int8 as x) ->
+        | Fable.NumberValue.Int8 x ->
             let expr = mkInt8LitExpr (abs x |> string<int8>)
             expr |> negateWhen (x < 0y)
-        | Int16, (:? int16 as x) ->
+        | Fable.NumberValue.Int16 x ->
             let expr = mkInt16LitExpr (abs x |> string<int16>)
             expr |> negateWhen (x < 0s)
-        | Int32, (:? int32 as x) ->
+        | Fable.NumberValue.Int32 x ->
             let expr = mkInt32LitExpr (abs x |> string<int32>)
             expr |> negateWhen (x < 0)
-        | Int64, (:? int64 as x) ->
+        | Fable.NumberValue.Int64 x ->
             let expr = mkInt64LitExpr (abs x |> string<int64>)
             expr |> negateWhen (x < 0L)
-        | Int128, x -> // (:? System.Int128 as x) ->
-            // let expr = mkInt128LitExpr (System.Int128.Abs(x) |> string)
-            // expr |> negateWhen (System.Int128.IsNegative(x))
-            let s = string<obj> x
+        | Fable.NumberValue.Int128(upper, lower) ->
+            let bytes =
+                Array.concat [ BitConverter.GetBytes(lower); BitConverter.GetBytes(upper) ] // little endian
+
+            let big = Numerics.BigInteger(bytes)
+            let s = string<Numerics.BigInteger> big
             let expr = mkInt128LitExpr (s.TrimStart('-'))
             expr |> negateWhen (s.StartsWith("-", StringComparison.Ordinal))
-        | UNativeInt, (:? unativeint as x) -> mkUsizeLitExpr (x |> string<unativeint>)
-        | UInt8, (:? uint8 as x) -> mkUInt8LitExpr (x |> string<uint8>)
-        | UInt16, (:? uint16 as x) -> mkUInt16LitExpr (x |> string<uint16>)
-        | UInt32, (:? uint32 as x) -> mkUInt32LitExpr (x |> string<uint32>)
-        | UInt64, (:? uint64 as x) -> mkUInt64LitExpr (x |> string<uint64>)
-        | UInt128, x -> // (:? System.UInt128 as x) ->
-            mkUInt128LitExpr (x |> string<obj>)
-        | Float16, (:? float32 as x) ->
+        | Fable.NumberValue.UNativeInt x -> mkUsizeLitExpr (x |> string<unativeint>)
+        | Fable.NumberValue.UInt8 x -> mkUInt8LitExpr (x |> string<uint8>)
+        | Fable.NumberValue.UInt16 x -> mkUInt16LitExpr (x |> string<uint16>)
+        | Fable.NumberValue.UInt32 x -> mkUInt32LitExpr (x |> string<uint32>)
+        | Fable.NumberValue.UInt64 x -> mkUInt64LitExpr (x |> string<uint64>)
+        | Fable.NumberValue.UInt128(upper, lower) ->
+            let bytes =
+                Array.concat [ BitConverter.GetBytes(lower); BitConverter.GetBytes(upper); [| 0uy |] ] // little endian
+
+            let big = Numerics.BigInteger(bytes)
+            mkUInt128LitExpr (string<Numerics.BigInteger> big)
+        | Fable.NumberValue.Float16 x ->
             let expr = mkFloat32LitExpr (abs x |> string<float32>)
             expr |> negateWhen (x < 0.0f)
-        | Float32, (:? float32 as x) ->
+        | Fable.NumberValue.Float32 x ->
             let expr = mkFloat32LitExpr (abs x |> string<float32>)
             expr |> negateWhen (x < 0.0f)
-        | Float64, (:? float as x) ->
+        | Fable.NumberValue.Float64 x ->
             let expr = mkFloat64LitExpr (abs x |> string<float>)
             expr |> negateWhen (x < 0.0)
-        | Decimal, (:? decimal as x) -> Replacements.makeDecimal com r t x |> transformExpr com ctx
-        | kind, x ->
-            $"Expected literal of type %A{kind} but got {x.GetType().FullName}"
-            |> addError com [] r
+        | Fable.NumberValue.Decimal x -> Replacements.makeDecimal com r t x |> transformExpr com ctx
+        | _ ->
+            $"Numeric literal is not supported: %A{v}" |> addError com [] r
 
             mkFloat64LitExpr (string<float> 0.)
 
@@ -1943,7 +1963,7 @@ module Util =
         | Fable.CharConstant c -> mkCharLitExpr c //, ?loc=r)
         | Fable.StringConstant s -> mkStrLitExpr s |> makeStaticString com ctx
         | Fable.StringTemplate(_tag, parts, values) -> makeStringTemplate com ctx parts values
-        | Fable.NumberConstant(x, kind, _) -> makeNumber com ctx r value.Type kind x
+        | Fable.NumberConstant(x, _) -> makeNumber com ctx r value.Type x
         | Fable.RegexConstant(source, flags) ->
             // Expression.regExpLiteral(source, flags, ?loc=r)
             unimplemented ()
@@ -2727,6 +2747,7 @@ module Util =
         let guardExpr =
             match guard with
             | Fable.Test(expr, Fable.TypeTest typ, r) -> transformTypeTest com ctx r true typ expr
+            | Fable.Test(expr, Fable.UnionCaseTest tag, r) -> transformUnionCaseTest com ctx r tag expr
             | _ -> transformExpr com ctx guard
 
         let thenExpr = transformLeaveContext com ctx None thenBody
@@ -2841,6 +2862,38 @@ module Util =
             mkLetExpr pat downcastExpr
         | _ -> makeLibCall com ctx genArgsOpt "Native" "type_test" [ expr ]
 
+    let transformUnionCaseTest (com: IRustCompiler) ctx range tag (fableExpr: Fable.Expr) : Rust.Expr =
+        match fableExpr.Type with
+        | Fable.DeclaredType(entRef, genArgs) ->
+            let ent = com.GetEntity(entRef)
+            assert (ent.IsFSharpUnion)
+            // let genArgsOpt = transformGenArgs com ctx genArgs // TODO:
+            let unionCase = ent.UnionCases |> List.item tag
+
+            let fields =
+                match fableExpr with
+                | Fable.IdentExpr ident ->
+                    unionCase.UnionCaseFields
+                    |> List.mapi (fun i _field ->
+                        let fieldName = $"{ident.Name}_{tag}_{i}"
+                        makeFullNameIdentPat fieldName
+                    )
+                | _ ->
+                    if List.isEmpty unionCase.UnionCaseFields then
+                        []
+                    else
+                        [ WILD_PAT ]
+
+            let unionCaseName = getUnionCaseName com ctx entRef unionCase
+            let pat = makeUnionCasePat unionCaseName fields
+
+            let expr =
+                fableExpr
+                |> prepareRefForPatternMatch com ctx fableExpr.Type (tryGetIdentName fableExpr)
+
+            mkLetExpr pat expr
+        | _ -> failwith "unreachable"
+
     let transformTest (com: IRustCompiler) ctx range kind (fableExpr: Fable.Expr) : Rust.Expr =
         match kind with
         | Fable.TypeTest typ -> transformTypeTest com ctx range false typ fableExpr
@@ -2866,37 +2919,26 @@ module Util =
                 let ent = com.GetEntity(entRef)
                 assert (ent.IsFSharpUnion)
                 // let genArgsOpt = transformGenArgs com ctx genArgs // TODO:
-                let unionCase = ent.UnionCases |> List.tryItem tag
+                let unionCase = ent.UnionCases |> List.item tag
 
                 let fields =
-                    match fableExpr, unionCase with
-                    | Fable.IdentExpr ident, Some unionCase ->
-                        unionCase.UnionCaseFields
-                        |> List.mapi (fun i _field ->
-                            let fieldName = $"{ident.Name}_{tag}_{i}"
-                            makeFullNameIdentPat fieldName
-                        )
-                    | _, Some unionCase ->
-                        if List.isEmpty unionCase.UnionCaseFields then
-                            []
-                        else
-                            [ WILD_PAT ]
-                    | _ ->
+                    if List.isEmpty unionCase.UnionCaseFields then
                         []
+                    else
+                        [ WILD_PAT ]
 
-                match unionCase with
-                | Some unionCase ->
-                    let unionCaseName = getUnionCaseName com ctx entRef unionCase
-                    let pat = makeUnionCasePat unionCaseName fields
+                let unionCaseName = getUnionCaseName com ctx entRef unionCase
+                let pat = makeUnionCasePat unionCaseName fields
 
-                    let expr =
-                        fableExpr
-                        |> prepareRefForPatternMatch com ctx fableExpr.Type (tryGetIdentName fableExpr)
+                let expr =
+                    fableExpr
+                    |> prepareRefForPatternMatch com ctx fableExpr.Type (tryGetIdentName fableExpr)
 
-                    mkLetExpr pat expr
-                | None ->
-                    mkMacroExpr "unreachable" []
-            | _ -> failwith "Should not happen"
+                let guardExpr = mkLetExpr pat expr
+                let thenExpr = mkBoolLitExpr true
+                let elseExpr = mkBoolLitExpr false
+                mkIfThenElseExpr guardExpr thenExpr elseExpr
+            | _ -> failwith "unreachable"
 
     let transformSwitch (com: IRustCompiler) ctx (evalExpr: Fable.Expr) cases defaultCase targets : Rust.Expr =
         let namesForIndex evalType evalName caseIndex = //todo refactor with below
@@ -3022,7 +3064,7 @@ module Util =
             |> List.map (fun (caseExpr, targetIndex, boundValues) ->
                 let patOpt =
                     match caseExpr with
-                    | Fable.Value(Fable.NumberConstant(:? int as tag, Int32, Fable.NumberInfo.Empty), r) ->
+                    | Fable.Value(Fable.NumberConstant(Fable.NumberValue.Int32 tag, Fable.NumberInfo.Empty), r) ->
                         makeUnionCasePatOpt evalType evalName tag
                     | _ -> None
 
@@ -3949,7 +3991,7 @@ module Util =
             mkClosureExpr false fnDecl value
 
         let valueStmt =
-            mkMethodCallExpr "get_or_insert_with" None callee [ closureExpr ]
+            mkMethodCallExpr "get_or_init" None callee [ closureExpr ]
             |> makeClone
             |> mkExprStmt
 
@@ -4023,10 +4065,9 @@ module Util =
 
         let body =
             if memb.IsInstance && not (memb.IsConstructor) then
-                // let ident = makeIdent selfName
-                // let thisArg = makeIdentExpr (rawIdent "this_")
-                // Fable.Let(ident, thisArg, body)
-                body
+                let ident = makeIdent selfName
+                let thisArg = makeIdentExpr (rawIdent "self")
+                Fable.Let(ident, thisArg, body)
             else
                 body
 
@@ -4359,7 +4400,7 @@ module Util =
             let body = formatString com ctx "{} {:?}" [ entNameExpr; fieldsAsTuple ]
 
             let fnBody = [ mkExprStmt body ] |> mkBlock |> Some
-            let fnRetTy =  Fable.String |> transformType com ctx |> mkFnRetTy
+            let fnRetTy = Fable.String |> transformType com ctx |> mkFnRetTy
             let fnDecl = mkFnDecl [ mkImplSelfParam false false ] fnRetTy
             let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl NO_GENERICS fnBody
             let attrs = []
@@ -4408,20 +4449,7 @@ module Util =
 
         [
             // implItemFor "Debug"
-
-            yield!
-                match self_ty.kind with
-                | AST.Types.TyKind.TraitObject (traits, AST.Types.TraitObjectSyntax.Dyn) ->
-                    match traits |> List.ofSeq with
-                    | [ AST.Types.GenericBound.Trait ({ trait_ref = { path = { segments = segments } } }, _) ] ->
-                        match segments |> List.ofSeq with
-                        | [ { ident = { name = "IDisposable" } } ] -> false
-                        | _ -> true
-                    | _ -> true
-                | _ -> true
-                |> function
-                    | true -> [ implItemFor "Display" ]
-                    | false -> []
+            implItemFor "Display"
         ]
 
     let op_impl_map =

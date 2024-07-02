@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 1.8.1 - 2024-06-17
+
+* Fable 4.19.3
+
+## 1.8.0 - 2024-06-13
+
+### Changed
+
+* Fable 4.19.1
+
+## 1.7.0 - 2024-06-10
+
+### Changed
+
+* Fable 4.19.0
+
+## 1.6.0 - 2024-05-23
+
+### Fixed
+
+* Make `dirname-filename-esm` a `dependency` instead of a `devDependency`
+
+### Changed
+
+* Fable 4.18.0
+
 ## 1.5.0 - 2024-03-20
 
 ### Changed

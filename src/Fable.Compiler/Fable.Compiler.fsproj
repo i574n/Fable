@@ -6,11 +6,10 @@
         <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
         <RootNamespace>Fable.Compiler</RootNamespace>
-        <Version>4.0.0-alpha-008</Version>
+        <Version>4.0.0-alpha-012</Version>
         <PackageReleaseNotes>## Fixed
 
-- [GH-3769](https://github.com/fable-compiler/Fable/pull/3769) The dependent files of the current file should be detected for the signature file if there is one present. (by @nojaf)
-- [GH-3769](https://github.com/fable-compiler/Fable/pull/3769) Local plugin build does not run indefinably. (by @nojaf)
+- [JS/TS] Fixed unwrapping optional arguments (#3847) (by @ncave)
 
 </PackageReleaseNotes>
         <DebugType>embedded</DebugType>
