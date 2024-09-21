@@ -7,9 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 4.21.0 - 2024-09-19
+
+### Added
+
+* [JS/TS] Add support for `OrdinalIgnoreCase` overload for `String.EndsWith` (#3892) (by @goswinr)
+* [JS/TS] Add `uri.Port`, `uri.IsDefaultPort` (by @MangelMaxime)
+* [Rust] Added support for Dictionary/HashSet comparers (by @ncave)
+* [Rust] Updated support for interface object expressions (by @ncave)
+
 ### Changed
 
 * [Python] Remove `$` sign when reporting an error from `assert_equal` and `assert_not_equal` (#3878) (by @joprice)
+* [All] Don't hide original error when failing to scan an assembly for plugin (#3896) (by @MangelMaxime)
+
+### Fixed
+
+* [JS/TS] Fix escaping of `{` and `}` in FormattableString (#3890) (by @roboz0r)
+* [JS/TS] Fix `uri.Host` to return the host name without the port (by @MangelMaxime)
+* [JS/TS] Fix TypeScript compilation by resolving type of `jsOptions` (#3894) (by @ManngelMaxime)
 
 ## 4.20.0 - 2024-09-04
 

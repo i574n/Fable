@@ -713,11 +713,16 @@ let makeGenericAverager (com: ICompiler) ctx t =
             "DivideByInt", divideFn
         ]
 
-let makePojoFromLambda com arg =
+let makePojoFromLambda com (arg: Expr) =
     let rec flattenSequential =
         function
         | Sequential statements -> List.collect flattenSequential statements
         | e -> [ e ]
+
+    let typ, genArgs =
+        match arg.Type with
+        | LambdaType(argType, _) -> argType, Some [ argType ]
+        | _ -> Any, None
 
     match arg with
     | Lambda(_, lambdaBody, _) ->
@@ -728,8 +733,8 @@ let makePojoFromLambda com arg =
             | _ -> None
         )
     | _ -> None
-    |> Option.map (fun members -> ObjectExpr(members, Any, None))
-    |> Option.defaultWith (fun () -> Helper.LibCall(com, "Util", "jsOptions", Any, [ arg ]))
+    |> Option.map (fun members -> ObjectExpr(members, typ, None))
+    |> Option.defaultWith (fun () -> Helper.LibCall(com, "Util", "jsOptions", typ, [ arg ], ?genArgs = genArgs))
 
 let makePojo (com: Compiler) caseRule keyValueList =
     let makeObjMember caseRule name values =
@@ -1449,7 +1454,6 @@ let implementedStringFunctions =
         [|
             "Compare"
             "CompareTo"
-            "EndsWith"
             "Format"
             "IndexOfAny"
             "Insert"
@@ -1503,12 +1507,15 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
 
         let left = Helper.InstanceCall(c, "indexOf", Int32.Number, [ arg ])
         makeEqOp r left (makeIntConst 0) BinaryGreaterOrEqual |> Some
-    | "StartsWith", Some c, [ _str ] ->
-        let left = Helper.InstanceCall(c, "indexOf", Int32.Number, args)
-        makeEqOp r left (makeIntConst 0) BinaryEqual |> Some
+    | "StartsWith", Some c, [ _str ] -> Helper.InstanceCall(c, "startsWith", Boolean, args) |> Some
     | "StartsWith", Some c, [ _str; _comp ] ->
         Helper.LibCall(com, "String", "startsWith", t, args, i.SignatureArgTypes, thisArg = c, ?loc = r)
         |> Some
+    | "EndsWith", Some c, [ _str ] -> Helper.InstanceCall(c, "endsWith", Boolean, args) |> Some
+    | "EndsWith", Some c, [ _str; _comp ] ->
+        Helper.LibCall(com, "String", "endsWith", t, args, i.SignatureArgTypes, thisArg = c, ?loc = r)
+        |> Some
+
     | ReplaceName [ "ToUpper", "toLocaleUpperCase"
                     "ToUpperInvariant", "toUpperCase"
                     "ToLower", "toLocaleLowerCase"
@@ -3619,11 +3626,13 @@ let uris
     | "get_IsAbsoluteUri"
     | "get_Scheme"
     | "get_Host"
+    | "get_Port"
     | "get_AbsolutePath"
     | "get_AbsoluteUri"
     | "get_PathAndQuery"
     | "get_Query"
     | "get_Fragment"
+    | "get_IsDefaultPort"
     | "get_OriginalString" ->
         Naming.removeGetSetPrefix i.CompiledName
         |> Naming.lowerFirst
