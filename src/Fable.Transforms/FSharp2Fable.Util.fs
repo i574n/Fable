@@ -1075,8 +1075,13 @@ module Patterns =
     let (|UnionCaseTesterFor|_|) (memb: FSharpMemberOrFunctionOrValue) =
         match memb.DeclaringEntity with
         | Some ent when ent.IsFSharpUnion ->
-            // if memb.IsUnionCaseTester then // TODO: this currently fails, use when fixed
-            if memb.IsPropertyGetterMethod && memb.LogicalName.StartsWith("get_Is") then
+            // if memb.IsUnionCaseTester then // insufficient, could be an interface member
+            if
+                memb.IsPropertyGetterMethod
+                && not memb.IsDispatchSlot
+                && not memb.IsOverrideOrExplicitInterfaceImplementation
+                && memb.LogicalName.StartsWith("get_Is")
+            then
                 let unionCaseName = memb.LogicalName |> Naming.replacePrefix "get_Is" ""
                 ent.UnionCases |> Seq.tryFind (fun uc -> uc.Name = unionCaseName)
             else
@@ -1645,6 +1650,7 @@ module TypeHelpers =
         (com: IFableCompiler)
         (ent: FSharpEntity)
         (compiledName: string)
+        (isInstance: bool)
         (argTypes: Fable.Type[] option)
         =
         let entRef = FsEnt.Ref ent
@@ -1653,7 +1659,7 @@ module TypeHelpers =
         |> Option.bind (fun ent ->
             match ent with
             | :? FsEnt as entity ->
-                entity.TryFindMember(compiledName, isInstance = true, ?argTypes = argTypes, requireDispatchSlot = true)
+                entity.TryFindMember(compiledName, isInstance, ?argTypes = argTypes, requireDispatchSlot = true)
             | _ -> None
         )
 
@@ -2799,7 +2805,8 @@ module Util =
 
                     entity
                     |> tryFindBaseEntity (fun ent ->
-                        tryFindAbstractMember com ent memb.CompiledName paramTypes |> Option.isSome
+                        tryFindAbstractMember com ent memb.CompiledName memb.IsInstanceMember paramTypes
+                        |> Option.isSome
                     )
                     |> Option.defaultValue entity
                 | _ -> entity

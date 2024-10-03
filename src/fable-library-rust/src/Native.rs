@@ -131,7 +131,16 @@ pub mod Native_ {
         }
     }
 
-    pub fn makeCompare<T: Clone + 'static>(
+    pub fn partial_compare<T: PartialOrd>(x: &T, y: &T) -> Ordering {
+        match x.partial_cmp(y) {
+            Some(ordering) => ordering,
+            None if y == y => Ordering::Less,    // y is not NaN
+            None if x == x => Ordering::Greater, // x is not NaN
+            None => Ordering::Equal,
+        }
+    }
+
+    pub fn make_compare<T: Clone + 'static>(
         comparer: Func2<T, T, i32>,
     ) -> impl Fn(&T, &T) -> Ordering {
         move |x, y| match comparer(x.clone(), y.clone()) {
@@ -148,11 +157,11 @@ pub mod Native_ {
     #[derive(Clone)]
     pub struct HashKey<T: Clone> {
         pub key: T,
-        pub comparer: Option<LrcPtr<dyn IEqualityComparer_1<T>>>,
+        pub comparer: LrcPtr<dyn IEqualityComparer_1<T>>,
     }
 
     impl<T: Clone> HashKey<T> {
-        pub fn new(key: T, comparer: Option<LrcPtr<dyn IEqualityComparer_1<T>>>) -> HashKey<T> {
+        pub fn new(key: T, comparer: LrcPtr<dyn IEqualityComparer_1<T>>) -> HashKey<T> {
             HashKey { key, comparer }
         }
     }
@@ -169,27 +178,21 @@ pub mod Native_ {
         }
     }
 
-    impl<T: Clone + Hash + 'static> Hash for HashKey<T> {
+    impl<T: Clone + 'static> Hash for HashKey<T> {
         #[inline]
         fn hash<H: Hasher>(&self, state: &mut H) {
-            match &self.comparer {
-                Some(comp) => comp.GetHashCode(self.key.clone()).hash(state),
-                None => self.key.hash(state),
-            }
+            self.comparer.GetHashCode(self.key.clone()).hash(state)
         }
     }
 
-    impl<T: Clone + PartialEq + 'static> PartialEq for HashKey<T> {
+    impl<T: Clone + 'static> PartialEq for HashKey<T> {
         #[inline]
         fn eq(&self, other: &Self) -> bool {
-            match &self.comparer {
-                Some(comp) => comp.Equals(self.key.clone(), other.key.clone()),
-                None => self.key.eq(&other.key),
-            }
+            self.comparer.Equals(self.key.clone(), other.key.clone())
         }
     }
 
-    impl<T: Clone + Hash + PartialEq + 'static> Eq for HashKey<T> {}
+    impl<T: Clone + 'static> Eq for HashKey<T> {}
 
     // -----------------------------------------------------------
     // Type testing
