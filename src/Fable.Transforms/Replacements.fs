@@ -1511,8 +1511,20 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | "StartsWith", Some c, [ _str; _comp ] ->
         Helper.LibCall(com, "String", "startsWith", t, args, i.SignatureArgTypes, thisArg = c, ?loc = r)
         |> Some
+    | "StartsWith", Some c, [ value; ignoreCase; _culture ] ->
+        addWarning com ctx.InlinePath r "CultureInfo argument is ignored"
+        let args = [ value; ignoreCase ]
+
+        Helper.LibCall(com, "String", "startsWith", t, args, i.SignatureArgTypes, thisArg = c, ?loc = r)
+        |> Some
     | "EndsWith", Some c, [ _str ] -> Helper.InstanceCall(c, "endsWith", Boolean, args) |> Some
     | "EndsWith", Some c, [ _str; _comp ] ->
+        Helper.LibCall(com, "String", "endsWith", t, args, i.SignatureArgTypes, thisArg = c, ?loc = r)
+        |> Some
+    | "EndsWith", Some c, [ value; ignoreCase; _culture ] ->
+        addWarning com ctx.InlinePath r "CultureInfo argument is ignored"
+        let args = [ value; ignoreCase ]
+
         Helper.LibCall(com, "String", "endsWith", t, args, i.SignatureArgTypes, thisArg = c, ?loc = r)
         |> Some
 
@@ -1616,6 +1628,34 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
             Helper.LibCall(com, "String", "concat", t, args, hasSpread = true, ?loc = r)
             |> Some
     | "CompareOrdinal", None, _ -> Helper.LibCall(com, "String", "compareOrdinal", t, args, ?loc = r) |> Some
+    | "Normalize", Some str, _ ->
+        match args with
+        | [] ->
+            Helper.InstanceCall(
+                str,
+                Naming.lowerFirst i.CompiledName,
+                t,
+                [ makeStrConst "NFC" ],
+                i.SignatureArgTypes,
+                genArgs = i.GenericArgs,
+                ?loc = r
+            )
+            |> Some
+        | [ NormalizationFormEnumValue normalizationForm ] ->
+            Helper.InstanceCall(
+                str,
+                Naming.lowerFirst i.CompiledName,
+                t,
+                [ makeStrConst normalizationForm ],
+                i.SignatureArgTypes,
+                genArgs = i.GenericArgs,
+                ?loc = r
+            )
+            |> Some
+        | _ ->
+            "Normalization expects an optional System.Text.NormalizationForm"
+            |> addErrorAndReturnNull com ctx.InlinePath r
+            |> Some
     | Patterns.SetContains implementedStringFunctions, thisArg, args ->
         Helper.LibCall(
             com,

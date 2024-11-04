@@ -56,6 +56,7 @@ pub mod Native_ {
         value
     }
 
+    use crate::System::Collections::Generic::EqualityComparer_1;
     use crate::Interfaces_::System::Collections::Generic::IEnumerable_1;
     use crate::Interfaces_::System::Collections::Generic::IEqualityComparer_1;
 
@@ -68,17 +69,20 @@ pub mod Native_ {
     use core::fmt::{Debug, Display, Formatter, Result};
     use core::hash::{BuildHasher, Hash, Hasher};
 
+    // default object trait
+    // pub trait IObject: Clone + Debug + 'static {}
+
     // -----------------------------------------------------------
     // Helpers
     // -----------------------------------------------------------
 
     pub fn ignore<T>(arg: &T) -> () {}
 
-    pub fn defaultOf<T>() -> T {
+    pub fn getZero<T>() -> T {
         unsafe { core::mem::zeroed() } // will panic on Rc/Arc/Box
     }
 
-    pub fn getZero<T: Default>() -> T {
+    pub fn defaultOf<T: Default>() -> T {
         Default::default()
     }
 
@@ -116,7 +120,7 @@ pub mod Native_ {
         ((h >> 32) ^ h) as i32
     }
 
-    pub fn referenceHash<T>(p: &T) -> i32 {
+    pub fn referenceHash<T: ?Sized>(p: &T) -> i32 {
         getHashCode(p as *const T)
     }
 
@@ -131,7 +135,16 @@ pub mod Native_ {
         }
     }
 
-    pub fn makeCompare<T: Clone + 'static>(
+    pub fn partial_compare<T: PartialOrd>(x: &T, y: &T) -> Ordering {
+        match x.partial_cmp(y) {
+            Some(ordering) => ordering,
+            None if y == y => Ordering::Less,    // y is not NaN
+            None if x == x => Ordering::Greater, // x is not NaN
+            None => Ordering::Equal,
+        }
+    }
+
+    pub fn make_compare<T: Clone + 'static>(
         comparer: Func2<T, T, i32>,
     ) -> impl Fn(&T, &T) -> Ordering {
         move |x, y| match comparer(x.clone(), y.clone()) {
@@ -141,6 +154,16 @@ pub mod Native_ {
         }
     }
 
+    pub fn default_eq_comparer<T>() -> LrcPtr<dyn IEqualityComparer_1<T>>
+    where
+        T: Clone + Hash + PartialEq + 'static,
+    {
+        interface_cast!(
+            EqualityComparer_1::<T>::get_Default(),
+            Lrc<dyn IEqualityComparer_1<T>>,
+        )
+    }
+
     // -----------------------------------------------------------
     // IEqualityComparer key wrapper
     // -----------------------------------------------------------
@@ -148,11 +171,11 @@ pub mod Native_ {
     #[derive(Clone)]
     pub struct HashKey<T: Clone> {
         pub key: T,
-        pub comparer: Option<LrcPtr<dyn IEqualityComparer_1<T>>>,
+        pub comparer: LrcPtr<dyn IEqualityComparer_1<T>>,
     }
 
     impl<T: Clone> HashKey<T> {
-        pub fn new(key: T, comparer: Option<LrcPtr<dyn IEqualityComparer_1<T>>>) -> HashKey<T> {
+        pub fn new(key: T, comparer: LrcPtr<dyn IEqualityComparer_1<T>>) -> HashKey<T> {
             HashKey { key, comparer }
         }
     }
@@ -169,27 +192,21 @@ pub mod Native_ {
         }
     }
 
-    impl<T: Clone + Hash + 'static> Hash for HashKey<T> {
+    impl<T: Clone + 'static> Hash for HashKey<T> {
         #[inline]
         fn hash<H: Hasher>(&self, state: &mut H) {
-            match &self.comparer {
-                Some(comp) => comp.GetHashCode(self.key.clone()).hash(state),
-                None => self.key.hash(state),
-            }
+            self.comparer.GetHashCode(self.key.clone()).hash(state)
         }
     }
 
-    impl<T: Clone + PartialEq + 'static> PartialEq for HashKey<T> {
+    impl<T: Clone + 'static> PartialEq for HashKey<T> {
         #[inline]
         fn eq(&self, other: &Self) -> bool {
-            match &self.comparer {
-                Some(comp) => comp.Equals(self.key.clone(), other.key.clone()),
-                None => self.key.eq(&other.key),
-            }
+            self.comparer.Equals(self.key.clone(), other.key.clone())
         }
     }
 
-    impl<T: Clone + Hash + PartialEq + 'static> Eq for HashKey<T> {}
+    impl<T: Clone + 'static> Eq for HashKey<T> {}
 
     // -----------------------------------------------------------
     // Type testing
@@ -297,8 +314,8 @@ pub mod Native_ {
     // -----------------------------------------------------------
 
     #[inline]
-    pub fn mkRef<T>(x: T) -> Lrc<T> {
-        Lrc::from(x)
+    pub fn mkRef<T>(x: T) -> LrcPtr<T> {
+        LrcPtr::new(x)
     }
 
     #[inline]
@@ -307,7 +324,7 @@ pub mod Native_ {
     }
 
     #[inline]
-    pub fn mkRefMut<T>(x: T) -> Lrc<MutCell<T>> {
+    pub fn mkRefMut<T>(x: T) -> LrcPtr<MutCell<T>> {
         mkRef(mkMut(x))
     }
 

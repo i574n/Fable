@@ -609,19 +609,27 @@ module Helpers =
             name.Replace('.', '_').Replace('`', '$')
 
     let cleanNameAsRustIdentifier (name: string) =
-        // name |> Naming.sanitizeIdentForbiddenChars
-        let name = Regex.Replace(name, @"[\s`'"".]", "_")
-
         let name =
             if name.Length > 0 && Char.IsDigit(name, 0) then
                 "_" + name
             else
                 name
 
-        let name =
-            Regex.Replace(name, @"[^\w]", (fun c -> String.Format(@"_{0:x4}", int c.Value[0])))
-
-        name
+        if name |> String.exists (fun c -> not (c = '_' || Char.IsLetterOrDigit(c))) then
+            name
+            |> String.collect (
+                function
+                | '_'
+                | ' '
+                | '`'
+                | '.'
+                | '\''
+                | '\"' -> "_"
+                | c when Char.IsLetterOrDigit(c) -> string c
+                | c -> String.Format(@"_{0:x4}", int c)
+            )
+        else
+            name
 
     let memberNameAsRustIdentifier (name: string) part =
         let f = cleanNameAsRustIdentifier
@@ -705,9 +713,12 @@ module Helpers =
 
         let name, part =
             match com.Options.Language, memb.DeclaringEntity with
+            | Rust, Some ent when memb.IsExtensionMember ->
+                // For Rust, add entity prefix to extension methods
+                cleanNameAsRustIdentifier name, part.Replace(cleanNameAsRustIdentifier)
             | Rust, Some ent when ent.IsInterface && not memb.IsDispatchSlot ->
                 // For Rust, add entity prefix to default static interface members
-                cleanNameAsRustIdentifier name, part.Replace(cleanNameAsJsIdentifier)
+                cleanNameAsRustIdentifier name, part.Replace(cleanNameAsRustIdentifier)
             | Rust, _ ->
                 // for Rust, no entity prefix for other members
                 memberNameAsRustIdentifier name part
@@ -1075,8 +1086,13 @@ module Patterns =
     let (|UnionCaseTesterFor|_|) (memb: FSharpMemberOrFunctionOrValue) =
         match memb.DeclaringEntity with
         | Some ent when ent.IsFSharpUnion ->
-            // if memb.IsUnionCaseTester then // TODO: this currently fails, use when fixed
-            if memb.IsPropertyGetterMethod && memb.LogicalName.StartsWith("get_Is") then
+            // if memb.IsUnionCaseTester then // insufficient, could be an interface member
+            if
+                memb.IsPropertyGetterMethod
+                && not memb.IsDispatchSlot
+                && not memb.IsOverrideOrExplicitInterfaceImplementation
+                && memb.LogicalName.StartsWith("get_Is")
+            then
                 let unionCaseName = memb.LogicalName |> Naming.replacePrefix "get_Is" ""
                 ent.UnionCases |> Seq.tryFind (fun uc -> uc.Name = unionCaseName)
             else
@@ -1645,6 +1661,7 @@ module TypeHelpers =
         (com: IFableCompiler)
         (ent: FSharpEntity)
         (compiledName: string)
+        (isInstance: bool)
         (argTypes: Fable.Type[] option)
         =
         let entRef = FsEnt.Ref ent
@@ -1653,7 +1670,7 @@ module TypeHelpers =
         |> Option.bind (fun ent ->
             match ent with
             | :? FsEnt as entity ->
-                entity.TryFindMember(compiledName, isInstance = true, ?argTypes = argTypes, requireDispatchSlot = true)
+                entity.TryFindMember(compiledName, isInstance, ?argTypes = argTypes, requireDispatchSlot = true)
             | _ -> None
         )
 
@@ -1683,7 +1700,8 @@ module Identifiers =
             // The F# compiler sometimes adds a numeric suffix. Remove it because it's not deterministic.
             // See https://github.com/fable-compiler/Fable/issues/2869#issuecomment-1169574962
             if fsRef.IsCompilerGenerated then
-                Regex.Replace(fsRef.CompiledName, @"\d+$", "", RegexOptions.Compiled)
+                // Regex.Replace(fsRef.CompiledName, @"\d+$", "", RegexOptions.Compiled)
+                fsRef.CompiledName.TrimEnd([| '0'; '1'; '2'; '3'; '4'; '5'; '6'; '7'; '8'; '9' |])
             else
                 fsRef.CompiledName
 
@@ -2139,7 +2157,7 @@ module Util =
 
         let memberName =
             match com.Options.Language, memb.DeclaringEntity with
-            | Rust, Some ent when not memb.IsInstanceMember ->
+            | Rust, Some ent when not memb.IsInstanceMember || memb.IsExtensionMember ->
                 // for Rust, use the namespace for default static interface calls,
                 // for other non-instance calls, prefix with the full entity name
                 if ent.IsInterface && not memb.IsDispatchSlot && ent.FullName.Contains(".") then
@@ -2323,7 +2341,7 @@ module Util =
                 getMangledAbstractMemberName ent memb.CompiledName overloadHash
             else if
                 // use DisplayName for getters/setters (except for Rust)
-                (isGetter || isSetter) && com.Options.Language <> Rust
+                (isGetter || isSetter) && not (com.Options.Language = Rust)
             then
                 getMemberDisplayName memb
             else
@@ -2393,7 +2411,12 @@ module Util =
             let isPythonStaticMember =
                 com.Options.Language = Python && not memb.IsInstanceMember
 
-            if not info.isMangled && info.isGetter && not isPythonStaticMember then
+            if
+                not info.isMangled
+                && info.isGetter
+                && not isPythonStaticMember
+                && not (com.Options.Language = Rust)
+            then
                 // Set the field as maybe calculated so it's not displaced by beta reduction
                 let kind =
                     Fable.FieldInfo.Create(
@@ -2404,7 +2427,7 @@ module Util =
                     )
 
                 Fable.Get(callee, kind, typ, r)
-            elif not info.isMangled && info.isSetter then
+            elif not info.isMangled && info.isSetter && not (com.Options.Language = Rust) then
                 let membType = memb.CurriedParameterGroups[0].[0].Type |> makeType Map.empty
                 let arg = callInfo.Args |> List.tryHead |> Option.defaultWith makeNull
                 Fable.Set(callee, Fable.FieldSet(info.name), membType, arg, r)
@@ -2572,7 +2595,7 @@ module Util =
                 match tryGlobalOrImportedFSharpEntity com e with
                 | Some expr -> Some expr
                 // AttachMembers classes behave the same as global/imported classes
-                | None when com.Options.Language <> Rust && isAttachMembersEntity com e ->
+                | None when not (com.Options.Language = Rust) && isAttachMembersEntity com e ->
                     FsEnt.Ref e |> entityIdent com |> Some
                 | None -> None
 
@@ -2690,7 +2713,7 @@ module Util =
 
     /// Removes optional arguments set to None in tail position
     let transformOptionalArguments
-        (_com: IFableCompiler)
+        (com: IFableCompiler)
         (_ctx: Context)
         (_r: SourceLocation option)
         (memb: FSharpMemberOrFunctionOrValue)
@@ -2699,6 +2722,7 @@ module Util =
         if
             memb.CurriedParameterGroups.Count <> 1
             || memb.CurriedParameterGroups[0].Count <> (List.length args)
+            || com.Options.Language = Rust // keep all optional args for Rust
         then
             args
         else
@@ -2799,7 +2823,8 @@ module Util =
 
                     entity
                     |> tryFindBaseEntity (fun ent ->
-                        tryFindAbstractMember com ent memb.CompiledName paramTypes |> Option.isSome
+                        tryFindAbstractMember com ent memb.CompiledName memb.IsInstanceMember paramTypes
+                        |> Option.isSome
                     )
                     |> Option.defaultValue entity
                 | _ -> entity

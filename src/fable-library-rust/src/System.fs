@@ -4,6 +4,8 @@ open Global_
 
 type Array() = class end
 
+type Attribute() = class end
+
 type Enum() = class end
 
 type Exception(message: string) =
@@ -14,6 +16,10 @@ type Exception(message: string) =
             "Specified argument was out of the range of valid values."
         else
             message
+
+    interface System.Collections.IStructuralEquatable with
+        member x.Equals(y, comparer) = false
+        member x.GetHashCode(comparer) = 0
 
 type InvalidOperationException(message: string) =
     new() = InvalidOperationException("")

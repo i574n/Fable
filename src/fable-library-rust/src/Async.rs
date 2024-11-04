@@ -9,8 +9,10 @@ pub mod Async_ {
     use futures::executor::{self, LocalPool};
     use futures::lock::Mutex;
     use futures::FutureExt;
+    use futures_timer::Delay;
 
     use super::Task_::Task;
+    use crate::System::Threading::CancellationToken;
 
     pub struct Async<T: Sized + Send + Sync> {
         pub future: Arc<Mutex<Pin<Box<dyn Future<Output = T> + Send + Sync>>>>,
@@ -38,7 +40,19 @@ pub mod Async_ {
         }
     }
 
-    pub fn startAsTask<T: Clone + Send + Sync + 'static>(a: Arc<Async<T>>) -> Arc<Task<T>> {
+    pub fn sleep(milliseconds: i32) -> Arc<Async<()>> {
+        let fut = Delay::new(Duration::from_millis(milliseconds as u64));
+        let a: Pin<Box<dyn Future<Output = ()> + Send + Sync + 'static>> = Box::pin(fut);
+        Arc::from(Async {
+            future: Arc::from(Mutex::from(a)),
+        })
+    }
+
+    pub fn startAsTask<T: Clone + Send + Sync + 'static>(
+        a: Arc<Async<T>>,
+        taskCreationOptions: Option<i32>,
+        cancellationToken: Option<CancellationToken>,
+    ) -> Arc<Task<T>> {
         let unitFut = async move {
             let mut res = a.future.lock().await;
             let res = res.as_mut().await;
@@ -49,7 +63,11 @@ pub mod Async_ {
         task
     }
 
-    pub fn runSynchronously<T: Clone + Send + Sync + 'static>(a: Arc<Async<T>>) -> T {
+    pub fn runSynchronously<T: Clone + Send + Sync + 'static>(
+        a: Arc<Async<T>>,
+        timeout: Option<i32>,
+        cancellationToken: Option<CancellationToken>,
+    ) -> T {
         let unitFut = async move {
             let mut res = a.future.lock().await;
             let res = res.as_mut().await;
@@ -142,7 +160,7 @@ pub mod Monitor_ {
     use std::thread;
     use std::time::Duration;
 
-    use crate::Native_::{Func0, Lrc, MutCell};
+    use crate::Native_::{Func0, LrcPtr, MutCell};
 
     static LOCKS: MutCell<Option<RwLock<HashSet<usize>>>> = MutCell::new(None);
     fn try_init_and_get_locks() -> &'static RwLock<HashSet<usize>> {
@@ -154,7 +172,7 @@ pub mod Monitor_ {
         LOCKS.get().as_ref().unwrap()
     }
 
-    pub fn enter<T>(o: Lrc<T>) {
+    pub fn enter<T>(o: LrcPtr<T>) {
         let p = Arc::<T>::as_ptr(&o) as usize;
         loop {
             let otherHasLock = try_init_and_get_locks().read().unwrap().get(&p).is_some();
@@ -167,7 +185,7 @@ pub mod Monitor_ {
         }
     }
 
-    pub fn exit<T>(o: Lrc<T>) {
+    pub fn exit<T>(o: LrcPtr<T>) {
         let p = Arc::<T>::as_ptr(&o) as usize;
         let hasRemoved = try_init_and_get_locks().write().unwrap().remove(&p);
         if (!hasRemoved) {
@@ -176,7 +194,7 @@ pub mod Monitor_ {
     }
 
     // Not technically part of monitor, but it needs to be behind a feature switch, so cannot just dump this in Native
-    pub fn lock<T: Clone + Send + Sync, U: 'static>(toLock: Arc<T>, f: Func0<U>) -> U {
+    pub fn lock<T: Clone + Send + Sync, U: 'static>(toLock: LrcPtr<T>, f: Func0<U>) -> U {
         enter(toLock.clone());
         let returnVal = f();
         // panics will bypass this - need some finally mechanism
@@ -380,7 +398,7 @@ pub mod Task_ {
 
 #[cfg(feature = "threaded")]
 pub mod TaskBuilder_ {
-    use super::super::Native_::Lrc;
+    use super::super::Native_::LrcPtr;
     use super::Task_::Task;
     use std::sync::Arc;
 
@@ -393,8 +411,8 @@ pub mod TaskBuilder_ {
         }
     }
 
-    pub fn new() -> Lrc<TaskBuilder> {
-        Lrc::from(TaskBuilder {})
+    pub fn new() -> LrcPtr<TaskBuilder> {
+        LrcPtr::new(TaskBuilder {})
     }
 }
 
@@ -403,7 +421,7 @@ pub mod Thread_ {
     use std::thread;
     use std::time::Duration;
 
-    use crate::Native_::{Func0, Lrc, MutCell};
+    use crate::Native_::{Func0, LrcPtr, MutCell};
 
     enum ThreadInt {
         New(Func0<()>),
@@ -418,8 +436,8 @@ pub mod Thread_ {
     }
     pub struct Thread(MutCell<ThreadInt>);
 
-    pub fn new(f: Func0<()>) -> Lrc<Thread> {
-        Lrc::from(Thread(MutCell::from(ThreadInt::New(f))))
+    pub fn new(f: Func0<()>) -> LrcPtr<Thread> {
+        LrcPtr::new(Thread(MutCell::from(ThreadInt::New(f))))
     }
 
     impl Thread {

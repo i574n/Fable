@@ -18,9 +18,11 @@
     <Compile Include="Choice.fs" />
     <Compile Include="Util.fs" />
     <Compile Include="FSharp.Control.fs" />
+    <Compile Include="FSharp.Collections.fs" />
     <Compile Include="System.fs" />
     <Compile Include="System.Collections.Generic.fs" />
     <Compile Include="System.Text.fs" />
+    <Compile Include="System.Threading.fs" />
     <Compile Include="Interfaces.fs" />
     <Compile Include="lib.fs" />
   </ItemGroup>

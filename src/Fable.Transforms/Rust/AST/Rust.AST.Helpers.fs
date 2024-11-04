@@ -383,17 +383,19 @@ module Paths =
             tokens = None
         }
 
-    let mkGenericPath (names: Symbol seq) (genArgs: GenericArgs option) : Path =
+    let mkGenericOffsetPath (names: Symbol seq) (genArgs: GenericArgs option) (offset: int) : Path =
         let len = Seq.length names
         let idents = mkPathIdents names
 
         let args i =
-            if i < len - 1 then
-                None
-            else
+            if i = len - 1 - offset then
                 genArgs
+            else
+                None
 
         idents |> Seq.mapi (fun i ident -> mkPathSegment ident (args i)) |> mkPath
+
+    let mkGenericPath (names: Symbol seq) (genArgs: GenericArgs option) : Path = mkGenericOffsetPath names genArgs 0
 
 [<AutoOpen>]
 module Patterns =
@@ -481,8 +483,8 @@ module Locals =
             tokens = None
         }
 
-    let mkIdentLocal attrs name ty init : Local =
-        let pat = mkIdentPat name false false
+    let mkIdentLocal attrs name isRef isMut ty init : Local =
+        let pat = mkIdentPat name isRef isMut
         mkLocal attrs pat ty init
 
 [<AutoOpen>]
@@ -1063,11 +1065,11 @@ module Types =
 
     let mkParenTy ty : Ty = TyKind.Paren(ty) |> mkTy
 
-    let mkRefTy nameOpt ty : Ty =
-        let lifetimeOpt = nameOpt |> Option.map mkLifetime
+    let mkRefTy (lifetimeOpt: Symbol option) ty : Ty =
+        let opt_lifetime = lifetimeOpt |> Option.map mkLifetime
 
         TyKind.Rptr(
-            lifetimeOpt,
+            opt_lifetime,
             {
                 ty = ty
                 mutbl = Mutability.Not
@@ -1075,11 +1077,11 @@ module Types =
         )
         |> mkTy
 
-    let mkMutRefTy nameOpt ty : Ty =
-        let lifetimeOpt = nameOpt |> Option.map mkLifetime
+    let mkMutRefTy (lifetimeOpt: Symbol option) ty : Ty =
+        let opt_lifetime = lifetimeOpt |> Option.map mkLifetime
 
         TyKind.Rptr(
-            lifetimeOpt,
+            opt_lifetime,
             {
                 ty = ty
                 mutbl = Mutability.Mut
@@ -1329,13 +1331,19 @@ module Items =
         else
             item |> mkPublicAssocItem
 
-    let mkFnItem attrs name kind : Item =
+    let mkTyAliasAssocItem attrs name ty generics bounds : AssocItem =
         let ident = mkIdent name
-        ItemKind.Fn kind |> mkItem attrs ident
+
+        AssocItemKind.TyAlias(Defaultness.Final, generics, mkVec bounds, Some(ty))
+        |> mkAssocItem attrs ident
 
     let mkFnAssocItem attrs name kind : AssocItem =
         let ident = mkIdent name
         AssocItemKind.Fn kind |> mkAssocItem attrs ident
+
+    let mkFnItem attrs name kind : Item =
+        let ident = mkIdent name
+        ItemKind.Fn kind |> mkItem attrs ident
 
     let mkUseItem attrs names kind : Item =
         let mkUseTree prefix kind : UseTree =
