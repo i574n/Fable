@@ -9,7 +9,7 @@ pub mod HashSet_ {
     #[cfg(not(feature = "no_std"))]
     use std::collections;
 
-    use crate::Interfaces_::System::Collections::Generic::IEqualityComparer_1;
+    use crate::System::Collections::Generic::IEqualityComparer_1;
     use crate::NativeArray_::{array_from, Array};
     use crate::Native_::{default_eq_comparer, mkRefMut, seq_to_iter};
     use crate::Native_::{HashKey, LrcPtr, MutCell, Seq, Vec};
@@ -114,8 +114,8 @@ pub mod HashSet_ {
 
     pub fn new_from_array<T: Eq + Hash + Clone + 'static>(a: Array<T>) -> HashSet<T> {
         HashSet {
-            hash_set: mkRefMut(collections::HashSet::from_iter(a.iter().map(|v| HashKey::new(v.clone(), None)))),
-            comparer: None,
+            hash_set: mkRefMut(collections::HashSet::from_iter(a.iter().map(|v| HashKey::new(v.clone(), default_eq_comparer::<T>())))),
+            comparer: default_eq_comparer::<T>(),
         }
     }
 

@@ -57,8 +57,8 @@ pub mod Native_ {
     }
 
     use crate::System::Collections::Generic::EqualityComparer_1;
-    use crate::Interfaces_::System::Collections::Generic::IEnumerable_1;
-    use crate::Interfaces_::System::Collections::Generic::IEqualityComparer_1;
+    use crate::System::Collections::Generic::IEnumerable_1;
+    use crate::System::Collections::Generic::IEqualityComparer_1;
 
     // TODO: use these types in generated code
     pub type Seq<T> = LrcPtr<dyn IEnumerable_1<T>>;
@@ -152,6 +152,12 @@ pub mod Native_ {
             i if i > 0 => Ordering::Greater,
             _ => Ordering::Equal,
         }
+    }
+
+    pub fn makeCompare<T: Clone + 'static>(
+        comparer: Func2<T, T, i32>,
+    ) -> impl Fn(&T, &T) -> Ordering {
+        make_compare(comparer)
     }
 
     pub fn default_eq_comparer<T>() -> LrcPtr<dyn IEqualityComparer_1<T>>
