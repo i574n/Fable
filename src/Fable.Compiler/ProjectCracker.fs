@@ -1,4 +1,4 @@
-﻿/// This module gets the F# compiler arguments from .fsproj as well as some
+/// This module gets the F# compiler arguments from .fsproj as well as some
 /// Fable-specific tasks like tracking the sources of Fable Nuget packages
 module Fable.Compiler.ProjectCracker
 
@@ -146,7 +146,7 @@ type CrackerOptions(cliArgs: CliArgs, evaluateOnly: bool) =
             builtDlls.Add(normalizedDllPath) |> ignore
 
     member _.ResetFableModulesDir() =
-        if IO.Directory.Exists(fableModulesDir) then
+        if IO.Directory.Exists(fableModulesDir) && (fableModulesDir + "/fable-library-rust" |> IO.DirectoryInfo).LinkTarget = null then
             IO.Directory.Delete(fableModulesDir, recursive = true)
 
         IO.Directory.CreateDirectory(fableModulesDir) |> ignore

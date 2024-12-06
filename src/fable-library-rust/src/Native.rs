@@ -21,6 +21,7 @@ pub mod Native_ {
     pub use super::FuncType::*;
     pub use super::Lazy::*;
     pub use super::Mutable::*;
+    pub use core::any::TypeId;
 
     #[cfg(not(feature = "static_do_bindings"))]
     #[macro_export]
@@ -151,6 +152,12 @@ pub mod Native_ {
             i if i > 0 => Ordering::Greater,
             _ => Ordering::Equal,
         }
+    }
+
+    pub fn makeCompare<T: Clone + 'static>(
+        comparer: Func2<T, T, i32>,
+    ) -> impl Fn(&T, &T) -> Ordering {
+        make_compare(comparer)
     }
 
     pub fn default_eq_comparer<T>() -> LrcPtr<dyn IEqualityComparer_1<T>>

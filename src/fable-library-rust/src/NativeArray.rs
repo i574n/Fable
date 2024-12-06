@@ -62,6 +62,14 @@ pub mod NativeArray_ {
         array_from(Vec::new())
     }
 
+    pub fn new_copy<T: Clone>(a: Array<T>) -> Array<T> {
+        array_from(a.to_vec())
+    }
+
+    pub fn count<T: Clone>(a: Array<T>) -> i32 {
+        a.len() as i32
+    }
+
     pub fn new_with_capacity<T: Clone>(capacity: i32) -> Array<T> {
         array_from(Vec::with_capacity(capacity as usize))
     }

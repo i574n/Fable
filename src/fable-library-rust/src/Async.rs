@@ -137,19 +137,18 @@ pub mod AsyncBuilder_ {
 #[cfg(feature = "threaded")]
 pub mod ThreadPool {
     use std::sync::RwLock;
+    use crate::Native_::MutCell;
 
     use futures::executor::ThreadPool;
 
-    static mut POOL: Option<RwLock<ThreadPool>> = None;
+    static POOL: MutCell<Option<RwLock<ThreadPool>>> = MutCell::new(None);
     pub fn try_init_and_get_pool() -> &'static RwLock<ThreadPool> {
-        unsafe {
-            if POOL.is_none() {
-                let pool = ThreadPool::new().unwrap();
-                POOL = Some(RwLock::new(pool));
-            }
-
-            POOL.as_ref().unwrap()
+        if POOL.get().is_none() {
+            let pool = ThreadPool::new().unwrap();
+            POOL.set(Some(RwLock::new(pool)));
         }
+
+        POOL.get().as_ref().unwrap()
     }
 }
 
@@ -161,18 +160,16 @@ pub mod Monitor_ {
     use std::thread;
     use std::time::Duration;
 
-    use crate::Native_::{Func0, LrcPtr};
+    use crate::Native_::{Func0, LrcPtr, MutCell};
 
-    static mut LOCKS: Option<RwLock<HashSet<usize>>> = None;
+    static LOCKS: MutCell<Option<RwLock<HashSet<usize>>>> = MutCell::new(None);
     fn try_init_and_get_locks() -> &'static RwLock<HashSet<usize>> {
-        unsafe {
-            let hs = HashSet::new();
-            if LOCKS.is_none() {
-                LOCKS = Some(RwLock::new(hs));
-            }
-
-            LOCKS.as_ref().unwrap()
+        let hs = HashSet::new();
+        if LOCKS.get().is_none() {
+            LOCKS.set(Some(RwLock::new(hs)));
         }
+
+        LOCKS.get().as_ref().unwrap()
     }
 
     pub fn enter<T>(o: LrcPtr<T>) {

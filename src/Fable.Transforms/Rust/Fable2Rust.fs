@@ -1534,7 +1534,7 @@ module Util =
 
         makeCall (funcWrap :: "from" :: []) None [ expr ]
 
-    let maybeWrapSmartPtr com ctx ent expr =
+    let maybeWrapSmartPtr com ctx (ent : Fable.Entity) expr =
         match ent with
         | HasReferenceTypeAttribute a ->
             match a with
@@ -4230,16 +4230,6 @@ module Util =
                 memb.CompiledName // no name mangling for interfaces
             else
                 Fable.Naming.splitLast membName
-
-        let body =
-            if memb.IsInstance && not (memb.IsConstructor) then
-                let ident = makeIdent selfName
-                let thisArg = makeIdentExpr (rawIdent "self")
-                Fable.Let(ident, thisArg, body)
-            elif memb.IsConstructor then
-                body |> maybeConstructorBaseCall com
-            else
-                body
 
         let fnDecl, fnBody, genArgs =
             let parameters = memb.CurriedParameterGroups |> List.concat
