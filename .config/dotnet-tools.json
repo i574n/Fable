@@ -2,6 +2,12 @@
   "version": 1,
   "isRoot": true,
   "tools": {
+    "paket": {
+      "version": "9.0.2",
+      "commands": [
+        "paket"
+      ]
+    },
     "fantomas": {
       "version": "6.3.11",
       "commands": [
