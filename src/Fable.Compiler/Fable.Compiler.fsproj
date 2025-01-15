@@ -6,10 +6,15 @@
         <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
         <RootNamespace>Fable.Compiler</RootNamespace>
-        <Version>5.0.0-alpha.2</Version>
-        <PackageReleaseNotes>## Fixed
+        <Version>5.0.0-alpha.5</Version>
+        <PackageReleaseNotes>## Added
 
-- [All] Allow Fable 5 to be used with Fable 4 plugins (@ncave)
+- [JS/TS/Python] Add new `TimSpan` overload support coming from .NET 9 (by @MangelMaxime)
+- [Rust] Add new `TimeSpan` overloads support coming from .NET 9.0 (by @ncave)
+
+## Fixed
+
+- [JS/TS] Fix `DateTimeOffset.ToLocalTime` (by @MangelMaxime)
 
 </PackageReleaseNotes>
         <DebugType>embedded</DebugType>

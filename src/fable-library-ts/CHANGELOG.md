@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+* [JS/TS] Add `StringBuiler.Append(c: char, repeatCount: int)` overload (by @roboz0r)
+
+## 1.9.0 - 2025-01-09
+
+### Added
+
+* [JS/TS] Add new `TimSpan` overload support coming from .NET 9 (by @MangelMaxime)
+
+### Fixed
+
+* [JS/TS] Fix `DateTimeOffset.ToLocalTime` (by @MangelMaxime)
+
+## 1.8.0 - 2024-11-19
+
+* [JS/TS] Fix `h` in `DateTime.ToString` (@MangelMaxime)
+* [JS/TS] Fix `hh` in `DateTime.ToString` (@MangelMaxime)
+
 ## 1.7.0 - 2024-11-19
 
 ### Fixed
