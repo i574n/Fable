@@ -16,7 +16,7 @@
     <AllowCrossTargeting>true</AllowCrossTargeting>
     <DefineConstants>$(DefineConstants);COMPILER</DefineConstants>
     <CheckNulls>true</CheckNulls>
-	<!-- Nullness checking against ns20 base class libraries is very weak, the APIs were not updated with annotations. 
+	<!-- Nullness checking against ns20 base class libraries is very weak, the APIs were not updated with annotations.
 	     Therefore we want to use the latest BCL APIs from NetCurrent.
 		 We are still not building the actual product in NetCurrent, so for official builds we remain as ns2.0.
 		 For 'BUILDING_USING_DOTNET' builds, we still want latest BCL annotations, so that contributors can get related warnings locally.
@@ -148,6 +148,7 @@
     <Compile Include="Utilities\QueueList.fs" />
     <Compile Include="Utilities\lib.fsi" />
     <Compile Include="Utilities\lib.fs" />
+    <Compile Include="Utilities\DependencyGraph.fs" />
     <Compile Include="Utilities\LruCache.fsi" />
     <Compile Include="Utilities\LruCache.fs" />
     <Compile Include="Utilities\ImmutableArray.fsi" />
@@ -541,6 +542,9 @@
     <Compile Include="Service\TransparentCompiler.fs" />
     <Compile Include="Service\service.fsi" />
     <Compile Include="Service\service.fs" />
+    <Compile Include="Service\FSharpWorkspaceState.fs" />
+    <Compile Include="Service\FSharpWorkspaceQuery.fs" />
+    <Compile Include="Service\FSharpWorkspace.fs" />
     <Compile Include="Service\ServiceInterfaceStubGenerator.fsi" />
     <Compile Include="Service\ServiceInterfaceStubGenerator.fs" />
     <Compile Include="Service\ServiceStructure.fsi" />
