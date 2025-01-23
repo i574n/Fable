@@ -6,15 +6,10 @@
         <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
         <RootNamespace>Fable.Compiler</RootNamespace>
-        <Version>5.0.0-alpha.5</Version>
-        <PackageReleaseNotes>## Added
+        <Version>5.0.0-alpha.7</Version>
+        <PackageReleaseNotes>## Fixed
 
-- [JS/TS/Python] Add new `TimSpan` overload support coming from .NET 9 (by @MangelMaxime)
-- [Rust] Add new `TimeSpan` overloads support coming from .NET 9.0 (by @ncave)
-
-## Fixed
-
-- [JS/TS] Fix `DateTimeOffset.ToLocalTime` (by @MangelMaxime)
+- [All] Disable .NET Welcome message when cracking project (#4014) (by @MangelMaxime)
 
 </PackageReleaseNotes>
         <DebugType>embedded</DebugType>
