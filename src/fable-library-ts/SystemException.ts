@@ -1,4 +1,4 @@
-import { class_type, TypeInfo } from "./fable_modules/fable-library-ts.5.0.0-alpha.5/Reflection.js";
+import { class_type, TypeInfo } from "./Reflection.js";
 
 export class SystemException extends Error {
     constructor() {
