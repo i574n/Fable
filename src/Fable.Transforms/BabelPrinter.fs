@@ -635,13 +635,11 @@ module PrinterExtensions =
             match doc with
             | None -> ()
             | Some doc ->
-                // TODO: Check docs with params, etc
-                let regex = Regex(@"<summary>([\s\S]*?)</summary>", RegexOptions.Compiled)
+                let doc = ParsedXmlDoc.Parse doc
 
-                let m = regex.Match(doc)
-
-                if m.Success then
-                    let lines = m.Groups[1].Value.Trim().Split('\n')
+                match doc.Summary with
+                | Some summary ->
+                    let lines = summary.Split('\n')
                     printer.Print("/**")
                     printer.PrintNewLine()
 
@@ -654,6 +652,7 @@ module PrinterExtensions =
 
                     printer.Print(" */")
                     printer.PrintNewLine()
+                | None -> ()
 
         member printer.PrintDeclaration(decl: Declaration) =
             match decl with
@@ -664,7 +663,7 @@ module PrinterExtensions =
                 printer.PrintFunction(Some id, parameters, body, typeParameters, returnType, loc, isDeclaration = true)
 
                 printer.PrintNewLine()
-            | InterfaceDeclaration(id, body, extends, typeParameters) ->
+            | InterfaceDeclaration(id, body, extends, typeParameters, _doc) ->
                 printer.PrintInterfaceDeclaration(id, body, extends, typeParameters)
             | EnumDeclaration(name, cases, isConst) ->
                 if isConst then

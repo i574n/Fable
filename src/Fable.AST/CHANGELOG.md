@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 4.6.0 - 2025-01-28
+
+* Stable release
+
+## 4.6.0-beta.1 - 2025-01-28
+
+### Fixed
+
+* [All] Re-package with `--realsig+` to fix `Method not found: 'Boolean Fable.CompilerOptions.Equals` (by @nojaf)
+
 ## 4.5.0 - 2024-05-23
 
 ### Removed

@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+* [Python] - Print root module and module function comments (by @alfonsogarciacaro)
+
+## 5.0.0-alpha.9 - 2025-01-28
+
+### Fixed
+
+* [All] Add `--realsig+` to fix `Method not found: 'Boolean Fable.CompilerOptions.Equals` (by @nojaf)
+
+## 5.0.0-alpha.8 - 2025-01-27
+
+### Added
+
+* [TS] Include XML Doc comment on interface properties (by @Freymaurer)
+* [TS] Generate `interface` type when using the "ParamObject" class pattern (by @MangelMaxime)
+* [Rust] - Initial support for null values (by @ncave)
+
 ## 5.0.0-alpha.7 - 2025-01-23
 
 ### Fixed
@@ -26,7 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-* [Py] Add missing unicode categories in python library (by @joprice)
+* [Python] Add missing unicode categories in python library (by @joprice)
 * [All] Log JSON output if we fail to parse MSBuild result (by @MangelMaxime)
 
 ## 5.0.0-alpha.5 - 2025-01-09

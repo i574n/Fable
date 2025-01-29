@@ -6,10 +6,10 @@
         <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
         <RootNamespace>Fable.Compiler</RootNamespace>
-        <Version>5.0.0-alpha.7</Version>
+        <Version>5.0.0-alpha.9</Version>
         <PackageReleaseNotes>## Fixed
 
-- [All] Disable .NET Welcome message when cracking project (#4014) (by @MangelMaxime)
+- [All] Add `--realsig+` to fix `Method not found: 'Boolean Fable.CompilerOptions.Equals` (by @nojaf)
 
 </PackageReleaseNotes>
         <DebugType>embedded</DebugType>
