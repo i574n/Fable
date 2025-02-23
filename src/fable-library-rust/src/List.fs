@@ -92,11 +92,11 @@ let last (xs: 'T list) =
     | Some x -> x
     | None -> failwith SR.inputListWasEmpty
 
-// Option.toList redirects here to avoid dependency
-let ofOption<'T> (opt: 'T option) : 'T list =
-    match opt with
-    | Some x -> singleton x
-    | None -> empty ()
+// // Option.toList redirects here to avoid dependency
+// let ofOption<'T> (opt: 'T option) : 'T list =
+//     match opt with
+//     | Some x -> singleton x
+//     | None -> empty ()
 
 let ofSeq (xs: 'T seq) =
     let mutable root = None
@@ -176,10 +176,10 @@ let rec forAll2 predicate (xs: 'T1 list) (ys: 'T2 list) =
             false
     | _ -> invalidArg "list2" SR.listsHadDifferentLengths
 
-let unfold (gen: 'State -> ('T * 'State) option) (state: 'State) =
+let unfold (generator: 'State -> ('T * 'State) option) (state: 'State) =
     let mutable root = None
     let mutable node = root
-    let mutable acc = gen state
+    let mutable acc = generator state
 
     while acc.IsSome do
         let (x, st) = acc.Value
@@ -188,7 +188,7 @@ let unfold (gen: 'State -> ('T * 'State) option) (state: 'State) =
         if root.IsNone then
             root <- node
 
-        acc <- gen st
+        acc <- generator st
 
     root |> mkList
 

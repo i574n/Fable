@@ -109,7 +109,7 @@ pub mod HashSet_ {
     where
         T: Clone + Hash + PartialEq + 'static,
     {
-        from_iter(seq_to_iter(&seq), default_eq_comparer::<T>())
+        from_iter(seq_to_iter(seq), default_eq_comparer::<T>())
     }
 
     pub fn new_from_array<T: Eq + Hash + Clone + 'static>(a: Array<T>) -> HashSet<T> {
@@ -123,7 +123,7 @@ pub mod HashSet_ {
         seq: Seq<T>,
         comparer: LrcPtr<dyn IEqualityComparer_1<T>>,
     ) -> HashSet<T> {
-        from_iter(seq_to_iter(&seq), comparer)
+        from_iter(seq_to_iter(seq), comparer)
     }
 
     pub fn isReadOnly<T: Clone>(set: HashSet<T>) -> bool {

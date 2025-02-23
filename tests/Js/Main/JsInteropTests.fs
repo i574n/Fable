@@ -215,8 +215,13 @@ type UserInfo =
 type UserInfo2 =
     | UserLoginCount
 
-[<StringEnum(CaseRules.KebabCase)>]
+[<StringEnum(CaseRules.KebabCase); RequireQualifiedAccess>]
 type MyCssOptions =
+    | ContentBox
+    | BorderBox
+
+[<StringEnum(CaseRules.LowerAll); RequireQualifiedAccess>]
+type LowerAllOptions =
     | ContentBox
     | BorderBox
 
@@ -316,55 +321,38 @@ module TaggedUnion =
         | [<CompiledValue(Kind.Baz)>] Baz of Baz<Kind>
 
 #if FABLE_COMPILER
-module ParamObjectClassPattern =
+module PojoDefinedByConsArgs =
+    [<JS.Pojo; AllowNullLiteral>]
+    type Person( name : string ) =
+        member val name = name
 
-    open Fable.Core.JsInterop
-
-    [<AllowNullLiteral>]
-    [<Global>]
-    type Person
-        [<ParamObjectAttribute; Emit("$0")>]
-        ( name : string ) =
-
-        member val name: string = jsNative with get, set
-
-    [<AllowNullLiteral>]
-    [<Global>]
-    type User
-        [<ParamObjectAttribute; Emit("$0")>]
-        ( id: int, name: string, ?age: int ) =
+    [<JS.Pojo; AllowNullLiteral>]
+    type User( id: int, name: string, ?age: int ) =
         inherit Person(name)
-        member val id: int = jsNative with get, set
-        member val age: int = jsNative with get, set
-        member val name: string = jsNative with get, set
+        member val id = id
+        member val age = age with get, set
+        member val name = name
 
-    [<AllowNullLiteral>]
-    [<Global>]
-    type BaseBag<'T>
-        () =
+    type Team = {
+        Leader: User
+    }
 
-        [<ParamObjectAttribute; Emit("$0")>]
+    [<JS.Pojo; AllowNullLiteral>]
+    type BaseBag<'T>() =
         new ( bag : 'T) = BaseBag()
+        member val bag: 'T = jsNative
 
-        member val bag: 'T = jsNative with get, set
-
-    [<AllowNullLiteral>]
-    [<Global>]
-    type UserBag<'ExtraData>
-        private () =
+    [<JS.Pojo; AllowNullLiteral>]
+    type UserBag<'ExtraData> private () =
         inherit BaseBag<int>()
-
-        [<ParamObjectAttribute; Emit("$0")>]
         new ( bag : int, data: 'ExtraData, ?userId : int) = UserBag()
-        [<ParamObjectAttribute; Emit("$0")>]
         new ( bag : int, data : 'ExtraData, ?userId : Guid) = UserBag()
-
         member val bag: int = jsNative with get, set
-        member val data: 'ExtraData = jsNative with get, set
-        member val userId: U2<int, Guid> option = jsNative with get, set
+        member val data: 'ExtraData = jsNative
+        member val userId: U2<int, Guid> option = jsNative
 
     let tests =
-        testList "ParamObjectClassPattern" [
+        testList "PojoDefinedByConsArgs" [
 
             testCase "does create a POJO" <| fun _ ->
                 let user = User(1, "John")
@@ -377,7 +365,7 @@ module ParamObjectClassPattern =
 
                 equal user userObj
 
-            testCase "ParamObject supports downcasting" <| fun _ ->
+            testCase "PojoDefinedByConsArgs supports downcasting" <| fun _ ->
                 let user = User(1, "John")
                 let person = user :> Person
 
@@ -389,12 +377,29 @@ module ParamObjectClassPattern =
                 equal "Kaladin" directDowncast.name
                 #endif
 
-            testCase "ParamObject works with generics" <| fun _ ->
+            testCase "PojoDefinedByConsArgs works with generics" <| fun _ ->
                 let userBag = UserBag(42, "data", 1)
 
                 equal 42 userBag.bag
                 equal "data" userBag.data
                 equal (Some (U2.Case1 1)) userBag.userId
+
+            testCase "PojoDefinedByConsArgs can mutate members" <| fun _ ->
+                let user = User(1, "John")
+                user.age |> equal None
+                user.age <- Some 42
+                user.age |> equal (Some 42)
+
+            testCase "Declared types can reference Pojo class" <| fun _ ->
+                let expected = [|"Fable.Tests.JsInterop.PojoDefinedByConsArgs.User"|]
+
+                FSharp.Reflection.FSharpType.GetRecordFields typeof<Team>
+                |> Array.map (fun f -> f.PropertyType.FullName)
+                |> equal expected
+
+                FSharp.Reflection.FSharpType.GetRecordFields typeof<{| Leader: User |}>
+                |> Array.map (fun f -> f.PropertyType.FullName)
+                |> equal expected
         ]
 #endif
 
@@ -792,8 +797,12 @@ let tests =
         UserInfo2.UserLoginCount |> unbox |> equal "USER_LOGIN_COUNT"
 
     testCase "StringEnum works with CaseRules.KebabCase" <| fun () ->
-        BorderBox |> unbox |> equal "border-box"
-        ContentBox |> unbox |> equal "content-box"
+        MyCssOptions.BorderBox |> unbox |> equal "border-box"
+        MyCssOptions.ContentBox |> unbox |> equal "content-box"
+
+    testCase "StringEnum works with CaseRules.LowerAll" <| fun () ->
+        let x = LowerAllOptions.ContentBox
+        x |> unbox |> equal "contentbox"
 
     // See https://github.com/fable-compiler/fable-import/issues/72
     testCase "Can use values and functions from global modules" <| fun () ->
@@ -906,6 +915,6 @@ let tests =
         validatePassword x |> equal "np"
 
     #if FABLE_COMPILER
-    ParamObjectClassPattern.tests
+    PojoDefinedByConsArgs.tests
     #endif
   ]
