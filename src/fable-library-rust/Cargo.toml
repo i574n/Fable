@@ -35,4 +35,4 @@ uuid = { version = "1.14", features = ["v4"], default-features = false, optional
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 uuid = { version = "1.14", features = ["v4", "js"], default-features = false, optional = true }
-
+getrandom = { version = ">=0.2,<1", features = ["js"], default-features = false, optional = true }
