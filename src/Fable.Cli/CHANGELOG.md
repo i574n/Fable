@@ -7,9 +7,86 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Removed
+
+* [All] Remove unused `Fable.Core` copy types from internal module (by @MangelMaxime)
+
+## 5.0.0-alpha.12 - 2025-03-14
+
 ### Added
 
-* [Python] - Print root module and module function comments (by @alfonsogarciacaro)
+* [Python] Add support for `nullArgCheck`(by @MangelMaxime)
+* [All] Add support for F# `nullness` (by @MangelMaxime)
+* [JS/TS] Add support for `Unchecked.nonNull` (by @MangelMaxime)
+* [All] Add support for `TreatWarningsAsErrors` (by @MangelMaxime)
+* [All] Print help message on unexpected arguments (by @MangelMaxime)
+
+### Fixed
+
+* [JS/TS] Make `nullArgCheck` report the same error message as on .NET (by @MangelMaxime)
+* [TS] Sanitize DUs case names when generating constructor function (by @MangelMaxime)
+* [All] Don't print help message on failed compilation (by @MangelMaxime)
+* [JS] Don't generate an import statement for pojos defined in another file (by @shayanhabibi)
+
+## 5.0.0-alpha.11 - 2025-03-03
+
+### Added
+
+* [JS/TS] Add support for `CaseRules.LowerAll` on `StringEnums` (by @shayanhabibi)
+* [Rust] Support Rust 2024 language edition (by @ncave)
+* [JS/TS] Add `C` and `c` format for numeric types (by @MangelMaxime)
+* [JS/TS] Add `B` and `b` format for numeric types (by @MangelMaxime)
+* [JS/TS] Add `n` format for numeric types (by @MangelMaxime)
+* [JS/TS] Generate compiler error when detecting an invalid/unsupported format specifier for numeric types (by @MangelMaxime)
+
+### Fixed
+
+* [JS/TS] Fix #4025: No reflection info for pojos (by @alfonsogarciacaro)
+* [JS/TS] Fix #4049: decimal/bigint to integer conversion checks (by @ncave)
+* [JS/TS] Fix `decimal` to `char` conversion checks (by @ManngelMaxime)
+* [JS/TS] Propagate non-captured exception when running `Async.Start` or `Async.StartImmediate` (by @MangelMaxime)
+* [JS/TS] Report an error at compilation time when trying to use `Async.RunSynchronously` (by @MangelMaxime)
+* [JS/TS] Fix short `DateTime` and `DateTimeOffset` short format strings (by @MangelMaxime)
+* [All] Don't scan system packages for plugins (by @MangelMaxime)
+* [JS/TS] Fix date formatting when repeating a format token more than the known format (example repeating 'd' more than 4 times) (by @MangelMaxime)
+* [Python] Fix date formatting when repeating a format token more than the known format (example repeating 'd' more than 4 times) (by @MangelMaxime)
+* [JS/TS] Fix #4010: Supports direct nested types when using `jsOptions` (by @MangelMaxime)
+
+    ```fs
+    let opts =
+        jsOptions<Level1> (fun o ->
+            o.level2.level3.valueA <- 10
+            o.level2.level3.valueB <- 20
+            o.topValueA <- 20
+        )
+    ```
+
+* [JS/TS] Fix numeric formats (by @MangelMaxime)
+
+### Changed
+
+* [JS/TS] Throw an error is an invalid Numeric format is provided (mimic .NET behavior) (by @MangelMaxime)
+
+## 5.0.0-alpha.10 - 2025-02-16
+
+### Added
+
+* [Python] Print root module and module function comments (by @alfonsogarciacaro)
+* [Rust] Add support for module comments (by @ncave)
+* [Rust] Add support for null strings (by @ncave)
+* [TS/JS] `Pojo` attribute support (by @alfonsogarciacaro)
+
+### Fixed
+
+* [JS/TS] - Fix anonymous record printing (#4029) (by @alfonsogarciacaro)
+* [Python] - Fix #3998: PhysicalEquality (by @alfonsogarciacaro)
+* [Python] Resolve relative paths for non-qualified imports (#3481) (by @alfonsogarciacaro)
+* [Python] `importSideEffects` shouldn't generate identifier (#3965) (by @alfonsogarciacaro)
+* [JS/TS] Fix #4031: Hoist vars locally in for and while loops (@alfonsogarciacaro)
+
+### Changed
+
+* [JS/TS] In `JSX`, generate self closing element when element has no children (#4037) (by @shayanhabibi)
 
 ## 5.0.0-alpha.9 - 2025-01-28
 
