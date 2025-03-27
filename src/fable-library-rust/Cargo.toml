@@ -30,6 +30,4 @@ regex = { version = "1.11", optional = true }
 rust_decimal = { version = "1.36", features = ["maths"], default-features = false, optional = true }
 startup = { version = ">=0.1,<1", path = "vendored/startup", optional = true }
 uuid = { version = "1.11", features = ["v4"], default-features = false, optional = true }
-
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-getrandom = { version = ">=0.2,<1", features = ["js"] }
+getrandom = { version = ">=0.2,<1", default-features = false, optional = true }
