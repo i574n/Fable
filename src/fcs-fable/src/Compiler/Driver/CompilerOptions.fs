@@ -1447,8 +1447,8 @@ let testFlag tcConfigB =
             | "ShowLoadedAssemblies" -> tcConfigB.showLoadedAssemblies <- true
             | "ContinueAfterParseFailure" -> tcConfigB.continueAfterParseFailure <- true
             | "ParallelOff" -> tcConfigB.parallelParsing <- false
-            | "ParallelIlxGen" -> tcConfigB.parallelIlxGen <- true // Kept as --test:.. flag for temporary backwards compatibility during .NET10 period.
-            | "GraphBasedChecking" -> // Kept as --test:.. flag for temporary backwards compatibility during .NET10 period.
+            | "ParallelIlxGen" -> tcConfigB.parallelIlxGen <- true // Kept as --test:.. flag for temporary backwards compatibility during .net9 period.
+            | "GraphBasedChecking" -> // Kept as --test:.. flag for temporary backwards compatibility during .net9 period.
                 tcConfigB.typeCheckingConfig <-
                     { tcConfigB.typeCheckingConfig with
                         Mode = TypeCheckingMode.Graph
@@ -1459,7 +1459,7 @@ let testFlag tcConfigB =
                         DumpGraph = true
                     }
             | "DumpSignatureData" -> tcConfigB.dumpSignatureData <- true
-            | "ParallelOptimization" -> // Kept as --test:.. flag for temporary backwards compatibility during .NET10 period.
+            | "ParallelOptimization" -> // Kept as --test:.. flag for temporary backwards compatibility during .net9 period.
                 tcConfigB.optSettings <-
                     { tcConfigB.optSettings with
                         processingMode = OptimizationProcessingMode.Parallel
