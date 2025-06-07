@@ -1,9 +1,7 @@
-from typing import Tuple
-
 from .types import FSharpRef
 
 
-def get_range(unsigned: bool, bitsize: int) -> Tuple[int, int]:
+def get_range(unsigned: bool, bitsize: int) -> tuple[int, int]:
     if bitsize == 8:
         return (0, 255) if unsigned else (-128, 127)
     if bitsize == 16:
@@ -64,10 +62,10 @@ def op_unary_negation_int32(x: int) -> int:
 
 
 __all__ = [
-    "parse",
-    "try_parse",
     "get_range",
     "op_unary_negation_int8",
     "op_unary_negation_int16",
     "op_unary_negation_int32",
+    "parse",
+    "try_parse",
 ]

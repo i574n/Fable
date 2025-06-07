@@ -1,23 +1,35 @@
 pub mod NativeArray_ {
     use crate::Global_::SR::indexOutOfBounds;
-    use crate::Native_::{alloc, make_compare, mkRefMut, partial_compare, seq_to_iter};
-    use crate::Native_::{Func1, Func2, LrcPtr, MutCell, Seq, Vec};
+    use crate::Native_::{make_compare, mkRefMut, partial_compare, seq_to_iter, vec};
+    use crate::Native_::{Func1, Func2, Lrc, LrcPtr, MutCell, NullableRef, Seq, Vec};
     use crate::System::Collections::Generic::IComparer_1;
 
     // -----------------------------------------------------------
     // Arrays
     // -----------------------------------------------------------
 
-    type MutArray<T> = MutCell<Vec<T>>;
+    type MutArray<T> = Lrc<MutCell<Vec<T>>>;
 
     #[derive(Clone, Debug, Default, Eq, Hash, PartialEq, PartialOrd, Ord)]
     #[repr(transparent)]
-    pub struct Array<T: Clone>(LrcPtr<MutArray<T>>);
+    pub struct Array<T>(Option<MutArray<T>>);
+
+    impl<T> NullableRef for Array<T> {
+        #[inline]
+        fn null() -> Self {
+            Array(None)
+        }
+
+        #[inline]
+        fn is_null(&self) -> bool {
+            self.0.is_none()
+        }
+    }
 
     impl<T: Clone> core::ops::Deref for Array<T> {
-        type Target = LrcPtr<MutArray<T>>;
+        type Target = MutArray<T>;
         fn deref(&self) -> &Self::Target {
-            &self.0
+            &self.0.as_ref().expect("Null reference exception.")
         }
     }
 
@@ -47,7 +59,7 @@ pub mod NativeArray_ {
     }
 
     pub fn array_from<T: Clone>(v: Vec<T>) -> Array<T> {
-        Array(mkRefMut(v))
+        Array(Some(Lrc::new(MutCell::from(v))))
     }
 
     pub fn new_array<T: Clone>(a: &[T]) -> Array<T> {
@@ -55,7 +67,7 @@ pub mod NativeArray_ {
     }
 
     pub fn new_init<T: Clone>(value: &T, count: i32) -> Array<T> {
-        array_from(alloc::vec![value.clone(); count as usize])
+        array_from(vec![value.clone(); count as usize])
     }
 
     pub fn new_empty<T: Clone>() -> Array<T> {
@@ -75,7 +87,7 @@ pub mod NativeArray_ {
     }
 
     pub fn new_from_enumerable<T: Clone + 'static>(seq: Seq<T>) -> Array<T> {
-        array_from(Vec::from_iter(seq_to_iter(&seq)))
+        array_from(Vec::from_iter(seq_to_iter(seq)))
     }
 
     pub fn get_Capacity<T: Clone>(a: Array<T>) -> i32 {
@@ -96,7 +108,7 @@ pub mod NativeArray_ {
 
     pub fn addRange<T: Clone + 'static>(a: Array<T>, seq: Seq<T>) {
         let range = a.len()..a.len();
-        a.get_mut().splice(range, seq_to_iter(&seq));
+        a.get_mut().splice(range, seq_to_iter(seq));
     }
 
     pub fn copyTo<T: Clone>(src: Array<T>, dest: Array<T>) {
@@ -289,7 +301,7 @@ pub mod NativeArray_ {
             panic!("{}", indexOutOfBounds());
         }
         let range = index as usize..index as usize;
-        a.get_mut().splice(range, seq_to_iter(&seq));
+        a.get_mut().splice(range, seq_to_iter(seq));
     }
 
     pub fn remove<T: Clone + PartialEq>(a: Array<T>, v: T) -> bool {

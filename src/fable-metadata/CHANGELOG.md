@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 2.0.0-beta.2 - 2025-03-03
+
+* Update `Fable.Core.dll` to support `CaseRules.LowerAll` (by @MangelMaxime)
+
+## 2.0.0-beta.1 - 2025-02-16
+
+* F# 9 support
+
 ## 1.1.0 - 2024-05-23
 
 ### Fixed

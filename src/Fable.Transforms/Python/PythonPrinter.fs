@@ -44,11 +44,11 @@ module PrinterExtensions =
                 printer.Print(handler)
 
             if node.OrElse.Length > 0 then
-                printer.Print("else: ")
+                printer.Print("else:")
                 printer.PrintBlock(node.OrElse)
 
             if node.FinalBody.Length > 0 then
-                printer.Print("finally: ")
+                printer.Print("finally:")
                 printer.PrintBlock(node.FinalBody)
 
         member printer.Print(arg: Arg) =
@@ -205,7 +205,7 @@ module PrinterExtensions =
                     printer.PrintBlock(body)
                     printElse els
                 | xs ->
-                    printer.Print("else: ")
+                    printer.Print("else:")
                     printer.PrintBlock(xs)
 
 
@@ -873,6 +873,12 @@ let run writer (program: Module) : Async<unit> =
             | ImportFrom({ Module = Some(Identifier path) } as info) ->
                 let path = printer.MakeImportPath(path)
                 ImportFrom { info with Module = Some(Identifier path) }
+            | Import({ Names = names }) ->
+                let names =
+                    names
+                    |> List.map (fun n -> { n with Name = printer.MakeImportPath(n.Name.Name) |> Identifier })
+
+                Import { Names = names }
             | decl -> decl
             |> printDeclWithExtraLine false printer
 

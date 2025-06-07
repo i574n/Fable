@@ -230,6 +230,8 @@ tests/**/*.actual
 target/
 Cargo.lock
 
+# This file is copied as part of the Restore task
+tests/React/Components.Copied.fs
 
 
 src/Fable.Core/Fable.Core.Util.ts

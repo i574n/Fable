@@ -2,12 +2,12 @@ module Build.Package
 
 open Build.Utils
 open Build.FableLibrary
-open Octokit
 open System
 open Build.Workspace
 open SimpleExec
 open BlackFox.CommandLine
 open System.IO
+open EasyBuild.Tools.PackageJson
 
 let private packageDestination = Path.Resolve("temp", "packages")
 
@@ -22,7 +22,7 @@ let handle (args: string list) =
 
     Directory.clean packageDestination
 
-    let tempVersion = "4.999.0-local-build-" + DateTime.Now.ToString("yyyyMMdd-HHmmss")
+    let tempVersion = "5.999.0-local-build-" + DateTime.Now.ToString("yyyyMMdd-HHmmss")
 
     let compilerFsPath =
         Path.Resolve("src", "Fable.Transforms", "Global", "Compiler.fs")
@@ -32,8 +32,8 @@ let handle (args: string list) =
     Publish.updateLibraryVersionInFableTransforms
         tempVersion
         {|
-            JavaScript = Npm.getVersionFromProjectDir ProjectDir.temp_fable_library_js
-            TypeScript = Npm.getVersionFromProjectDir ProjectDir.temp_fable_library_ts
+            JavaScript = PackageJson.tempFableLibraryJs |> PackageJson.getVersion
+            TypeScript = PackageJson.tempFableLibraryTs |> PackageJson.getVersion
         |}
 
     Command.Run(

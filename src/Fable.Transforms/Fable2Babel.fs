@@ -396,7 +396,10 @@ module Reflection =
                     |> List.toArray
 
                 match com.GetEntity(entRef) with
-                | Patterns.Try (Util.tryFindAnyEntAttribute [ Atts.stringEnum; Atts.erase; Atts.tsTaggedUnion ]) (att, _) as ent ->
+                | Patterns.Try (Util.tryFindAnyEntAttribute [ Atts.stringEnum
+                                                              Atts.erase
+                                                              Atts.tsTaggedUnion
+                                                              Atts.pojoDefinedByConsArgs ]) (att, _) as ent ->
                     match att with
                     | Atts.stringEnum -> primitiveTypeInfo "string"
                     | Atts.erase ->
@@ -1569,7 +1572,7 @@ module Util =
             if com.IsTypeScript then
                 match List.tryItem tag ent.UnionCases with
                 | Some case ->
-                    match tryJsConstructorWithSuffix com ctx ent ("_" + case.Name) with
+                    match tryJsConstructorWithSuffix com ctx ent ("_" + sanitizeName case.Name) with
                     | Some helperRef ->
                         let typeParams = makeTypeParamInstantiation com ctx genArgs
 
@@ -1878,7 +1881,7 @@ module Util =
 
             Expression.newExpression (classExpr, [||])
 
-    let transformCallArgs
+    let transformCallArgsWithNamedArgs
         (com: IBabelCompiler)
         ctx
         (callInfo: Fable.CallInfo)
@@ -1906,26 +1909,12 @@ module Util =
             paramsInfo
             |> Option.map (splitNamedArgs args)
             |> function
-                | None -> args, None
-                | Some(args, []) ->
-                    // Detect if the method has a ParamObject attribute
-                    // If yes and no argument is passed, pass an empty object
-                    // See https://github.com/fable-compiler/Fable/issues/3480
-                    match callInfo.MemberRef with
-                    | Some(Fable.MemberRef(_, info)) ->
-                        let hasParamObjectAttribute =
-                            info.AttributeFullNames
-                            |> List.tryFind (fun attr -> attr = Atts.paramObject)
-                            |> Option.isSome
-
-                        if hasParamObjectAttribute then
-                            args, Some(makeJsObject [])
-                        else
-                            args, None
-                    | _ ->
-                        // Here detect empty named args
-                        args, None
-                | Some(args, namedArgs) ->
+                | None
+                | Some(_, None) -> args, None
+                // If there are named arguments but none is passed, pass an empty object
+                // See https://github.com/fable-compiler/Fable/issues/3480
+                | Some(args, Some []) -> args, Some(makeJsObject [])
+                | Some(args, Some namedArgs) ->
                     let objArg =
                         namedArgs
                         |> List.choose (fun (p, v) ->
@@ -1958,9 +1947,12 @@ module Util =
             else
                 List.map (fun e -> com.TransformAsExpr(ctx, e)) args
 
-        match objArg with
-        | None -> args
-        | Some objArg -> args @ [ objArg ]
+        args, objArg
+
+    let transformCallArgs com ctx callInfo memberInfo =
+        match transformCallArgsWithNamedArgs com ctx callInfo memberInfo with
+        | args, None -> args
+        | args, Some objArg -> args @ [ objArg ]
 
     let resolveExpr t strategy babelExpr : Statement =
         match strategy with
@@ -2029,7 +2021,7 @@ module Util =
         ||> List.fold (fun propsAndChildren prop ->
             match propsAndChildren, prop with
             | None, _ -> None
-            | Some(props, children), Fable.Value(Fable.NewTuple([ StringConst key; value ], _), _) ->
+            | Some(props, children), MaybeCasted(Fable.Value(Fable.NewTuple([ StringConst key; value ], _), _)) ->
                 if key = "children" then
                     match value with
                     | Replacements.Util.ArrayOrListLiteral(children, _) -> Some(props, children)
@@ -2041,6 +2033,112 @@ module Util =
 
                 None
         )
+
+    module Jsx =
+
+        (***
+
+For JSX, we want to rewrite the default output in order to remove all the code coming from list CEs
+
+By default, this code
+
+```fs
+Html.div
+    [
+        yield! [
+            Html.div "Test 1"
+            Html.div "Test 2"
+        ]
+    ]
+```
+
+generates something like
+
+```jsx
+<div>
+    {toList(delay(() => [<div>
+        Test 1
+    </div>, <div>
+        Test 2
+    </div>]))}
+</div>;
+```
+
+but thanks to the optimisation done below we get
+
+```jsx
+<div>
+    <div>
+        Test 1
+    </div>
+    <div>
+        Test 2
+    </div>
+</div>
+```
+
+        Initial implementation of this optimiser comes from https://github.com/shayanhabibi/Partas.Solid/blob/master/Partas.Solid.FablePlugin/Plugin.fs
+
+        ***)
+
+        // Check if the provided expression is equal to the expected identiferText (as a string)
+        let rec (|IdentifierIs|_|) (identifierText: string) expression =
+            match expression with
+            | Expression.Identifier(Identifier(currentCallerText, _)) when identifierText = currentCallerText -> Some()
+            | _ -> None
+
+        // Make it easy to check if we are calling the expected function
+        and (|CalledExpression|_|) (callerText: string) value =
+            match value with
+            | CallExpression(IdentifierIs callerText, UnrollerFromArray exprs, _, _) -> Some exprs
+            | _ -> None
+
+        and (|UnrollerFromSingleton|) (expr: Expression) : Expression list =
+            [ expr ]
+            |> function
+                | Unroller exprs -> exprs
+
+        and (|UnrollerFromArray|) (arrayExpr: Expression array) : Expression list =
+            arrayExpr
+            |> Array.toList
+            |> function
+                | Unroller exprs -> exprs
+
+        and (|Unroller|): Expression list -> Expression list =
+            function
+            | [] -> []
+            | expr :: Unroller rest ->
+                match expr with
+                | CalledExpression "toList" exprs -> exprs @ rest
+                | CalledExpression "delay" exprs -> exprs @ rest
+                | ArrowFunctionExpression([||],
+                                          BlockStatement [| ReturnStatement(ArrayExpression(UnrollerFromArray exprs, _),
+                                                                            _) |],
+                                          _,
+                                          _,
+                                          _) -> exprs @ rest
+                | ArrowFunctionExpression([||],
+                                          BlockStatement [| ReturnStatement(UnrollerFromSingleton exprs, _) |],
+                                          _,
+                                          _,
+                                          _) -> exprs @ rest
+                | CalledExpression "append" exprs -> exprs @ rest
+                | CalledExpression "singleton" exprs -> exprs @ rest
+                | CalledExpression "empty" _ -> [ Expression.nullLiteral () ] @ rest
+                // Note: Should we guard this unwrapper by checking that all the elements in the array are JsxElements?
+                | ArrayExpression(UnrollerFromArray exprs, _) -> exprs @ rest
+                | ConditionalExpression(testExpr, UnrollerFromSingleton thenExprs, UnrollerFromSingleton elseExprs, loc) ->
+                    ConditionalExpression(
+                        testExpr,
+                        SequenceExpression(thenExprs |> List.toArray, None),
+                        SequenceExpression(elseExprs |> List.toArray, None),
+                        loc
+                    )
+                    :: rest
+                | expr ->
+                    // Tips 💡
+                    // If a pattern is not optimized, you can put a debug point here to capture it
+                    expr :: rest
 
     let transformJsxEl (com: IBabelCompiler) ctx componentOrTag props =
         match transformJsxProps com props with
@@ -2055,6 +2153,12 @@ module Util =
                     // Because of call optimizations, it may happen a list has been transformed to an array in JS
                     | [ ArrayExpression(children, _) ] -> Array.toList children
                     | children -> children
+                // Optimize AST, removing F# CEs from the output (see documentation in the JSX module)
+                |> List.map (fun child ->
+                    match child with
+                    | Jsx.UnrollerFromSingleton expr -> expr
+                )
+                |> List.concat
 
             let props =
                 props |> List.rev |> List.map (fun (k, v) -> k, transformAsExpr com ctx v)
@@ -2146,16 +2250,37 @@ module Util =
                 transformJsxCall com ctx callee callInfo.Args memberInfo
             | memberInfo ->
                 let callee = com.TransformAsExpr(ctx, callee)
-                let args = transformCallArgs com ctx callInfo memberInfo
+
+                let nonNamedArgs, namedArgs =
+                    transformCallArgsWithNamedArgs com ctx callInfo memberInfo
+
+                let args = nonNamedArgs @ Option.toList namedArgs
 
                 match callInfo.ThisArg with
                 | None when List.contains "new" callInfo.Tags ->
-                    let typeParamInst =
-                        match typ with
-                        | Fable.DeclaredType(_entRef, genArgs) -> makeTypeParamInstantiationIfTypeScript com ctx genArgs
+                    let pojo =
+                        match nonNamedArgs, namedArgs, memberInfo with
+                        | [], Some namedArgs, Some memberInfo ->
+                            match memberInfo.DeclaringEntity |> Option.bind com.TryGetEntity with
+                            | Some e when FSharp2Fable.Util.isPojoDefinedByConsArgsEntity e -> Some namedArgs
+                            | _ -> None
                         | _ -> None
 
-                    Expression.newExpression (callee, List.toArray args, ?typeArguments = typeParamInst, ?loc = range)
+                    match pojo with
+                    | Some pojo -> pojo
+                    | None ->
+                        let typeParamInst =
+                            match typ with
+                            | Fable.DeclaredType(_entRef, genArgs) ->
+                                makeTypeParamInstantiationIfTypeScript com ctx genArgs
+                            | _ -> None
+
+                        Expression.newExpression (
+                            callee,
+                            List.toArray args,
+                            ?typeArguments = typeParamInst,
+                            ?loc = range
+                        )
                 | None -> callFunction com ctx range callee callInfo.GenericArgs args
                 | Some(TransformExpr com ctx thisArg) ->
                     callFunction com ctx range callee callInfo.GenericArgs (thisArg :: args)
@@ -2207,6 +2332,27 @@ module Util =
     // in a lambda to isolate its variable context
     let transformBlock (com: IBabelCompiler) ctx ret expr : BlockStatement =
         com.TransformAsStatements(ctx, ret, expr) |> BlockStatement
+
+    let transformBlockWithVarHoisting (com: IBabelCompiler) ctx ret expr : BlockStatement =
+        let declaredVars = ResizeArray()
+
+        let ctx =
+            { ctx with
+                HoistVars =
+                    fun ids ->
+                        declaredVars.AddRange(ids)
+                        true
+            }
+
+        let body = transformBlock com ctx ret expr
+
+        if declaredVars.Count = 0 then
+            body
+        else
+            let varDeclStatement =
+                declaredVars |> Seq.map (fun v -> v, None) |> multiVarDeclaration com ctx Let
+
+            BlockStatement(Array.append [| varDeclStatement |] body.Body)
 
     let transformTryCatch com ctx r returnStrategy (body, catch, finalizer) =
         // try .. catch statements cannot be tail call optimized
@@ -3053,9 +3199,10 @@ module Util =
             transformDecisionTreeSuccessAsStatements com ctx returnStrategy idx boundValues
 
         | Fable.WhileLoop(TransformExpr com ctx guard, body, range) ->
-            [|
-                Statement.whileStatement (guard, transformBlock com ctx None body, ?loc = range)
-            |]
+            // Hoist vars within the loop so if a closure captures the variable
+            // it doesn't change in the next iteration, see #4031
+            let body = transformBlockWithVarHoisting com ctx None body
+            [| Statement.whileStatement (guard, body, ?loc = range) |]
 
         | Fable.ForLoop(var, TransformExpr com ctx start, TransformExpr com ctx limit, body, isUp, range) ->
             let op1, op2 =
@@ -3066,7 +3213,9 @@ module Util =
 
             [|
                 Statement.forStatement (
-                    transformBlock com ctx None body,
+                    // Hoist vars within the loop so if a closure captures the variable
+                    // it doesn't change in the next iteration, see #4031
+                    transformBlockWithVarHoisting com ctx None body,
                     VariableDeclaration.variableDeclaration (
                         Let,
                         var.Name,
@@ -3084,26 +3233,21 @@ module Util =
             Option.map (fun name -> NamedTailCallOpportunity(com, ctx, name, args) :> ITailCallOpportunity) name
 
         let args = FSharp2Fable.Util.discardUnitArg args
-        let declaredVars = ResizeArray()
         let mutable isTailCallOptimized = false
 
         let ctx =
             { ctx with
                 TailCallOpportunity = tailcallChance
-                HoistVars =
-                    fun ids ->
-                        declaredVars.AddRange(ids)
-                        true
                 OptimizeTailCall = fun () -> isTailCallOptimized <- true
             }
 
-        let body =
+        let returnStrategy =
             if body.Type = Fable.Unit then
-                transformBlock com ctx (Some ReturnUnit) body
-            elif isJsStatement ctx (Option.isSome tailcallChance) body then
-                transformBlock com ctx (Some Return) body
+                ReturnUnit
             else
-                transformAsExpr com ctx body |> wrapExprInBlockWithReturn
+                Return
+
+        let body = transformBlockWithVarHoisting com ctx (Some returnStrategy) body
 
         let args, body =
             match isTailCallOptimized, tailcallChance with
@@ -3142,15 +3286,6 @@ module Util =
                     Parameter.parameter (a.Name, ?typeAnnotation = ta)
                 ),
                 body
-
-        let body =
-            if declaredVars.Count = 0 then
-                body
-            else
-                let varDeclStatement =
-                    declaredVars |> Seq.map (fun v -> v, None) |> multiVarDeclaration com ctx Let
-
-                BlockStatement(Array.append [| varDeclStatement |] body.Body)
 
         args |> List.toArray, body
 
@@ -3695,7 +3830,7 @@ module Util =
                                 )
                             )
 
-                        let fnId = entName + "_" + case.Name |> Identifier.identifier
+                        let fnId = entName + "_" + sanitizeName case.Name |> Identifier.identifier
                         // Don't use return type, TypeScript will infer it and sometimes we want to use
                         // the actual constructor type in case it implements an interface
                         // let returnType = AliasTypeAnnotation(Identifier.identifier(entName + UnionHelpers.UNION_SUFFIX), entParamsInst)
@@ -3783,7 +3918,7 @@ module Util =
 
         declareType com ctx ent decl.Name args body baseExpr classMembers
 
-    let transformParamObjectClassPatternToInterface
+    let transformPojoDefinedByConsArgsToInterface
         (com: IBabelCompiler)
         ctx
         (ent: Fable.Entity)
@@ -4214,11 +4349,11 @@ module Util =
                 else
                     []
             | ent ->
-                if
-                    Compiler.Language = TypeScript
-                    && FSharp2Fable.Helpers.isParamObjectClassPattern ent
-                then
-                    transformParamObjectClassPatternToInterface com ctx ent decl
+                if FSharp2Fable.Util.isPojoDefinedByConsArgsEntity ent then
+                    if Compiler.Language = TypeScript then
+                        transformPojoDefinedByConsArgsToInterface com ctx ent decl
+                    else
+                        []
                 else
 
                     let classMembers =

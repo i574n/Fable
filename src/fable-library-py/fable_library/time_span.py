@@ -37,12 +37,12 @@ def create(
             pass
 
     return TimeSpan(
-        days * 864000000000
-        + (hours or 0) * 36000000000
-        + (minutes or 0) * 600000000
-        + (seconds or 0) * 10000000
-        + (milliseconds or 0) * 10000
-        + (microseconds or 0) * 10
+        float(days) * 864000000000
+        + float(hours or 0) * 36000000000
+        + float(minutes or 0) * 600000000
+        + float(seconds or 0) * 10000000
+        + float(milliseconds or 0) * 10000
+        + float(microseconds or 0) * 10
     )
 
 
@@ -212,7 +212,7 @@ def parse(string: str, _: Any | None = None) -> TimeSpan:
         try:
             d = int(string)
         except Exception:
-            raise Exception("String '%s' was not recognized as a valid TimeSpan." % string)
+            raise Exception(f"String '{string}' was not recognized as a valid TimeSpan.")
         return from_days(d)
     if first_colon > 0:  # process time part
         r = _time_span_parse_regex.match(string)
@@ -246,9 +246,9 @@ def parse(string: str, _: Any | None = None) -> TimeSpan:
                     case 7:
                         ms = int(g_8) / 10000
                     case _:
-                        raise Exception("String '%s' was not recognized as a valid TimeSpan." % string)
+                        raise Exception(f"String '{string}' was not recognized as a valid TimeSpan.")
             return multiply(create(d, h, m, s, ms), sign)
-    raise Exception("String '%s' was not recognized as a valid TimeSpan." % string)
+    raise Exception(f"String '{string}' was not recognized as a valid TimeSpan.")
 
 
 def try_parse(
@@ -270,29 +270,29 @@ def try_parse(
 
 
 __all__ = [
+    "add",
     "create",
-    "total_microseconds",
-    "total_milliseconds",
-    "total_seconds",
-    "total_minutes",
-    "total_hours",
-    "total_days",
-    "from_ticks",
+    "divide",
+    "duration",
+    "from_hours",
     "from_microseconds",
     "from_milliseconds",
-    "from_hours",
     "from_minutes",
     "from_seconds",
-    "negate",
-    "duration",
-    "total_seconds",
-    "total_days",
-    "total_minutes",
-    "total_hours",
-    "add",
-    "subtract",
-    "divide",
+    "from_ticks",
     "multiply",
+    "negate",
     "parse",
+    "subtract",
+    "total_days",
+    "total_days",
+    "total_hours",
+    "total_hours",
+    "total_microseconds",
+    "total_milliseconds",
+    "total_minutes",
+    "total_minutes",
+    "total_seconds",
+    "total_seconds",
     "try_parse",
 ]

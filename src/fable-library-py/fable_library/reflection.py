@@ -5,7 +5,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, cast
 
-from .types import FSharpRef, Record
+from .types import FSharpRef, IntegerTypes, Record
 from .types import Union as FsUnion
 from .util import Array, combine_hash_codes, equal_arrays_with
 
@@ -87,7 +87,7 @@ def lambda_type(argType: TypeInfo, returnType: TypeInfo):
 
 
 def delegate_type(*generics: TypeInfo) -> TypeInfo:
-    return TypeInfo("System.Func`%d" % len(generics), list(generics))
+    return TypeInfo(f"System.Func`{len(generics)}", list(generics))
 
 
 def record_type(
@@ -245,7 +245,7 @@ def is_instance_of_type(t: TypeInfo, o: Any) -> bool:
     if isinstance(o, str):
         return t.fullname == string_type.fullname
 
-    if isinstance(o, int | float):
+    if isinstance(o, IntegerTypes | float):
         return is_erased_to_number(t)
 
     if callable(o):
@@ -357,7 +357,7 @@ def is_enum_defined(t: TypeInfo, v: str | int) -> bool:
         kv = get_enum_case(t, v)
         return kv[0] is not None and kv[0] != ""
     except Exception:
-        # Supress error
+        # Suppress error
         pass
 
     return False

@@ -27,10 +27,14 @@
         "temp/tests/Rust/Cargo.toml"
     ],
     "editor.inlayHints.enabled": "offUnlessPressed",
-    "dotnet.defaultSolution": "disable",
+    "dotnet.defaultSolution": "Fable.sln",
     "python.testing.pytestArgs": [
         "temp"
     ],
     "python.testing.unittestEnabled": false,
-    "python.testing.pytestEnabled": true
+    "python.testing.pytestEnabled": true,
+    "files.associations": {
+        "*.jsx.actual": "javascript",
+        "*.jsx.expected": "javascript"
+    }
 }

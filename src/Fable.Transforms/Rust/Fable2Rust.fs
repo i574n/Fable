@@ -998,10 +998,11 @@ module TypeInfo =
         isNullable || isNotNullable && isReferenceType
 
     let transformGenericParamType com ctx name isMeasure constraints : Rust.Ty =
-        if isNullableReferenceType com ctx constraints then
-            // primitiveType name |> makeNullableTy com ctx
-            primitiveType name |> makeLrcPtrTy com ctx
-        elif isInferredGenericParam com ctx name isMeasure then
+        // if isNullableReferenceType com ctx constraints then
+        //     // primitiveType name |> makeNullableTy com ctx
+        //     primitiveType name |> makeLrcPtrTy com ctx
+        // elif
+        if isInferredGenericParam com ctx name isMeasure then
             mkInferTy () // mkNeverTy ()
         else
             primitiveType name
@@ -1734,7 +1735,7 @@ module Util =
         makeLibCall com ctx None "String" "fromString" [ value ]
 
     let makeNullCheck com ctx (value: Rust.Expr) =
-        makeLibCall com ctx None "Native" "isNull" [ value ]
+        makeLibCall com ctx None "Native" "is_null" [ value ]
 
     let makeNull com ctx (typ: Fable.Type) =
         let typ =
@@ -1743,7 +1744,7 @@ module Util =
             | t -> t
 
         let genArgsOpt = transformGenArgs com ctx [ typ ]
-        makeLibCall com ctx genArgsOpt "Native" "getNull" []
+        makeLibCall com ctx genArgsOpt "Native" "null" []
 
     let makeInit com ctx (typ: Fable.Type) =
         let genArgsOpt = transformGenArgs com ctx [ typ ]
@@ -2024,7 +2025,7 @@ module Util =
             | MaybeCasted(Fable.IdentExpr ident) -> isRefScoped ctx ident.Name
             | _ -> false
 
-        let targetIsRef = ctx.IsParamByRefPreferred
+        let targetIsRef = ctx.IsParamByRefPreferred //&& not implCopy
         // || Option.exists (isByRefType com) tOpt
         // || isAddrOfExpr e
 
@@ -2054,13 +2055,13 @@ module Util =
             let ctx = { ctx with IsParamByRefPreferred = false }
             com.TransformExpr(ctx, e)
 
-        match implCopy, implClone, sourceIsRef, targetIsRef, mustClone, isUnreachable with
-        | _, _, false, true, _, false -> expr |> mkAddrOfExpr
-        | _, _, true, true, _, false -> expr
-        | _, _, true, false, _, false -> expr |> makeClone
-        | false, true, _, false, true, false -> expr |> makeClone
+        match sourceIsRef, targetIsRef, implCopy, implClone, mustClone, isUnreachable with
+        | true, true, _, _, _, false -> expr
+        | false, true, _, _, _, false -> expr |> mkAddrOfExpr
+        | true, false, _, _, _, false -> expr |> makeClone
+        | false, false, false, true, true, false -> expr |> makeClone
         | _ -> expr
-    // |> BLOCK_COMMENT_SUFFIX (sprintf implCopy: %b, "implClone: %b, sourceIsRef; %b, targetIsRef: %b, isOnlyRef: %b (%i), isUnreachable: %b" implCopy implClone sourceIsRef targetIsRef isOnlyRef isUnreachable varAttrs.UsageCount)
+    // |> BLOCK_COMMENT_SUFFIX (sprintf "sourceIsRef: %b, targetIsRef: %b, implCopy: %b, implClone: %b, mustClone: %b, isUnreachable: %b" sourceIsRef targetIsRef implCopy implClone mustClone isUnreachable)
 
 
     // let extractBaseExprFromBaseCall (com: IRustCompiler) (ctx: Context) (baseType: Fable.DeclaredType option) baseCall =
@@ -2353,15 +2354,12 @@ module Util =
 
         let isByRefPreferred =
             membOpt
-            |> Option.map (fun memberInfo ->
-                memberInfo.Attributes
-                |> Seq.exists (fun a -> a.Entity.FullName = Atts.rustByRef)
-            )
+            |> Option.map (fun memb -> memb.Attributes |> Seq.exists (fun a -> a.Entity.FullName = Atts.rustByRef))
             |> Option.defaultValue false
 
         let argParams =
             membOpt
-            |> Option.map (fun memberInfo -> memberInfo.CurriedParameterGroups |> List.concat)
+            |> Option.map (fun memb -> memb.CurriedParameterGroups |> List.concat)
             |> Option.defaultValue []
 
         let ctx =
@@ -2717,7 +2715,7 @@ module Util =
                 isByRefType com ident2.Type || ident2.IsMutable
                 ->
                 transformIdent com ctx None ident2 |> Some
-            | Fable.Value(Fable.Null _t, _) -> None // no init value, just a name declaration, to be initialized later
+            | Fable.Value(Fable.Null Fable.MetaType, _) -> None // special init value to skip initialization
             | Function(args, body, _name) -> transformLambda com ctx (Some ident.Name) args body |> Some
             | _ ->
                 transformLeaveContext com ctx None value
@@ -3562,7 +3560,7 @@ module Util =
 
             let fnBody = strBody |> Seq.map mkEmitSemiStmt |> mkBlock |> Some
 
-            let attrs = []
+            let attrs = [ mkAttr "cfg" [ "not(feature = \"no_std\")" ] ]
             let fnDecl = mkFnDecl [] VOID_RETURN_TY
             let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl NO_GENERICS fnBody
             let fnItem = mkFnItem attrs "main" fnKind
@@ -3876,6 +3874,11 @@ module Util =
             let genArgsOpt = mkConstraintArgs tys []
             mkTypeTraitGenericBound names genArgsOpt
 
+        let makeImportBound com ctx moduleName typeName =
+            let importName = getLibraryImportName com ctx moduleName typeName
+            let objectBound = mkTypeTraitGenericBound [ importName ] None
+            objectBound
+
         let makeRawBound id = makeGenBound [ rawIdent id ] []
 
         let makeOpBound op =
@@ -3914,7 +3917,7 @@ module Util =
                     else
                         []
                 | _ -> []
-            | Fable.Constraint.IsNullable -> []
+            | Fable.Constraint.IsNullable -> [ makeImportBound com ctx "Native" "NullableRef" ]
             | Fable.Constraint.IsNotNullable -> []
             | Fable.Constraint.IsValueType -> []
             | Fable.Constraint.IsReferenceType -> []
@@ -4119,8 +4122,13 @@ module Util =
             let returnType = memb.ReturnParameter.Type
             transformFunc com ctx parameters returnType (Some memb.FullName) decl.Args decl.Body
 
+        let isUnsafe =
+            memb.Attributes |> Seq.exists (fun a -> a.Entity.FullName = Atts.rustUnsafe)
+
         let fnBodyBlock =
-            if decl.Body.Type = Fable.Unit then
+            if isUnsafe then
+                fnBody |> mkUnsafeBlockExpr |> mkBodyBlock
+            else if decl.Body.Type = Fable.Unit then
                 mkSemiBlock fnBody
             else
                 mkExprBlock fnBody
@@ -4503,9 +4511,10 @@ module Util =
                 let body =
                     (body, fieldIdents |> List.rev)
                     ||> List.fold (fun acc ident ->
-                        let nullOfT = Fable.Value(Fable.Null ident.Type, None)
+                        // use special init value to skip initialization (i.e. declaration only)
+                        let nullOfT = Fable.Value(Fable.Null Fable.MetaType, None)
                         Fable.Let(ident, nullOfT, acc)
-                    ) // will be transformed as declaration only
+                    )
 
                 body
             | e -> e
@@ -5078,7 +5087,7 @@ module Util =
                 com.ClearAllImports(ctx)
                 useItem :: importItems
 
-            let outerAttrs = transformAttributes com ctx ent.Attributes None
+            let outerAttrs = transformAttributes com ctx ent.Attributes decl.XmlDoc
             let innerAttrs = getInnerAttributes com ctx decl.Members
             let attrs = innerAttrs @ outerAttrs
             let modDecls = useDecls @ memberDecls
@@ -5386,15 +5395,15 @@ module Compiler =
         let topAttrs =
             [
                 if isLastFileInProject com then
-                    // adds "no_std" for fable library crate if feature is enabled
-                    if isFableLibrary com then
-                        mkInnerAttr "cfg_attr" [ "feature = \"no_std\""; "no_std" ]
+                    // adds "no_std" to crate if feature is enabled
+                    mkInnerAttr "cfg_attr" [ "feature = \"no_std\""; "no_std" ]
 
                     // TODO: make some of those conditional on compiler options
                     mkInnerAttr "allow" [ "dead_code" ]
                     mkInnerAttr "allow" [ "non_camel_case_types" ]
                     mkInnerAttr "allow" [ "non_snake_case" ]
                     mkInnerAttr "allow" [ "non_upper_case_globals" ]
+                    mkInnerAttr "allow" [ "unexpected_cfgs" ]
                     mkInnerAttr "allow" [ "unreachable_code" ]
                     mkInnerAttr "allow" [ "unused_attributes" ]
                     mkInnerAttr "allow" [ "unused_imports" ]
@@ -5402,6 +5411,7 @@ module Compiler =
                     mkInnerAttr "allow" [ "unused_parens" ]
                     mkInnerAttr "allow" [ "unused_variables" ]
                     mkInnerAttr "allow" [ "unused_assignments" ]
+                    mkInnerAttr "allow" [ "unused_unsafe" ]
 
             // these require nightly
             // mkInnerAttr "feature" ["stmt_expr_attributes"]

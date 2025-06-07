@@ -35,12 +35,11 @@ Continuations = tuple[
 
 
 class _Listener(Protocol):
-    def __call__(self, __state: Any | None = None) -> None:
-        ...
+    def __call__(self, __state: Any | None = None) -> None: ...
 
 
 class CancellationToken:
-    __slots__ = "cancelled", "listeners", "idx", "lock"
+    __slots__ = "cancelled", "idx", "listeners", "lock"
 
     def __init__(self, cancelled: bool = False):
         self.cancelled = cancelled
@@ -93,46 +92,39 @@ class IAsyncContext(Generic[_T]):
     __slots__ = ()
 
     @abstractmethod
-    def on_success(self, value: _T) -> None:
-        ...
+    def on_success(self, value: _T) -> None: ...
 
     @abstractmethod
-    def on_error(self, error: Exception) -> None:
-        ...
+    def on_error(self, error: Exception) -> None: ...
 
     @abstractmethod
-    def on_cancel(self, error: OperationCanceledError) -> None:
-        ...
+    def on_cancel(self, error: OperationCanceledError) -> None: ...
 
     @property
     @abstractmethod
-    def trampoline(self) -> Trampoline:
-        ...
+    def trampoline(self) -> Trampoline: ...
 
     @trampoline.setter
     @abstractmethod
-    def trampoline(self, val: Trampoline):
-        ...
+    def trampoline(self, val: Trampoline): ...
 
     @property
     @abstractmethod
-    def cancel_token(self) -> CancellationToken:
-        ...
+    def cancel_token(self) -> CancellationToken: ...
 
     @cancel_token.setter
     @abstractmethod
-    def cancel_token(self, val: CancellationToken):
-        ...
+    def cancel_token(self, val: CancellationToken): ...
 
     @staticmethod
     def create(
-        on_success: Callable[[_T], None] | None,
+        trampoline: Trampoline,
+        cancel_token: CancellationToken,
+        on_success: Callable[[_U], None] | None,
         on_error: Callable[[Exception], None] | None,
         on_cancel: Callable[[OperationCanceledError], None] | None,
-        trampoline: Trampoline | None,
-        cancel_token: CancellationToken | None,
-    ) -> IAsyncContext[_T]:
-        return AnonymousAsyncContext(on_success, on_error, on_cancel, trampoline, cancel_token)
+    ) -> IAsyncContext[_U]:
+        return AnonymousAsyncContext(trampoline, cancel_token, on_success, on_error, on_cancel)
 
 
 """ FSharpAsync"""
@@ -144,16 +136,16 @@ def empty_continuation(x: Any = None) -> None:
 
 
 class AnonymousAsyncContext(IAsyncContext[_T]):
-    __slots__ = "_on_success", "_on_error", "_on_cancel", "_trampoline", "_cancel_token"
+    __slots__ = "_cancel_token", "_on_cancel", "_on_error", "_on_success", "_trampoline"
 
     def __init__(
         self,
+        trampoline: Trampoline,
+        cancel_token: CancellationToken,
         on_success: Callable[[_T], None] | None = None,
         on_error: Callable[[Exception], None] | None = None,
         on_cancel: Callable[[OperationCanceledError], None] | None = None,
-        trampoline: Trampoline | None = None,
-        cancel_token: CancellationToken | None = None,
-    ):
+    ) -> None:
         self._on_success: Callable[[_T], None] = on_success or empty_continuation
         self._on_error: Callable[[Exception], None] = on_error or empty_continuation
         self._on_cancel: Callable[[OperationCanceledError], None] = on_cancel or empty_continuation
@@ -171,22 +163,18 @@ class AnonymousAsyncContext(IAsyncContext[_T]):
         return self._on_cancel(error)
 
     @property
-    @abstractmethod
     def trampoline(self) -> Trampoline:
         return self._trampoline
 
     @trampoline.setter
-    @abstractmethod
     def trampoline(self, val: Trampoline):
         self._trampoline = val
 
     @property
-    @abstractmethod
     def cancel_token(self) -> CancellationToken:
         return self._cancel_token
 
     @cancel_token.setter
-    @abstractmethod
     def cancel_token(self, val: CancellationToken):
         self._cancel_token = val
 
@@ -199,11 +187,11 @@ class ScheduledItem:
 
 
 class Trampoline:
-    __slots__ = "lock", "running", "call_count"
+    __slots__ = "call_count", "lock", "running"
 
     MaxTrampolineCallCount = 75  # Max recursion depth: 1000
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.call_count: int = 0
         self.lock = Lock()
         self.running = False
@@ -260,7 +248,7 @@ def protected_bind(
                 # print("Exception: ", err)
                 ctx.on_error(err)
 
-        ctx_ = IAsyncContext.create(on_success, ctx.on_error, ctx.on_cancel, ctx.trampoline, ctx.cancel_token)
+        ctx_ = IAsyncContext.create(ctx.trampoline, ctx.cancel_token, on_success, ctx.on_error, ctx.on_cancel)
         return computation(ctx_)
 
     return protected_cont(cont)
@@ -308,12 +296,10 @@ class AsyncBuilder:
         return self.While(lambda: not done, self.Delay(delay))
 
     @overload
-    def Return(self) -> Async[None]:
-        ...
+    def Return(self) -> Async[None]: ...
 
     @overload
-    def Return(self, value: _T) -> Async[_T]:
-        ...
+    def Return(self, value: _T) -> Async[_T]: ...
 
     def Return(self, value: Any = None) -> Async[Any]:
         return protected_return(value)
@@ -335,7 +321,7 @@ class AsyncBuilder:
                 compensation()
                 ctx.on_cancel(x)
 
-            ctx_ = IAsyncContext.create(on_success, on_error, on_cancel, ctx.trampoline, ctx.cancel_token)
+            ctx_ = IAsyncContext.create(ctx.trampoline, ctx.cancel_token, on_success, on_error, on_cancel)
             computation(ctx_)
 
         return protected_cont(cont)
@@ -367,12 +353,10 @@ class AsyncBuilder:
         return self.TryFinally(binder(resource), compensation)
 
     @overload
-    def While(self, guard: Callable[[], bool], computation: Async[Literal[None]]) -> Async[None]:
-        ...
+    def While(self, guard: Callable[[], bool], computation: Async[Literal[None]]) -> Async[None]: ...
 
     @overload
-    def While(self, guard: Callable[[], bool], computation: Async[_T]) -> Async[_T]:
-        ...
+    def While(self, guard: Callable[[], bool], computation: Async[_T]) -> Async[_T]: ...
 
     def While(self, guard: Callable[[], bool], computation: Async[Any]) -> Async[Any]:
         if guard():

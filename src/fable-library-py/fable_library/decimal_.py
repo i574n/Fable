@@ -1,6 +1,6 @@
 from decimal import MAX_EMAX, MIN_EMIN, Decimal, getcontext
 
-from .types import FSharpRef
+from .types import FSharpRef, IntegerTypes, byte, int16, int32, int64, sbyte, uint16, uint32, uint64
 
 
 getcontext().prec = 29
@@ -113,25 +113,29 @@ def op_inequality(a: Decimal, b: Decimal) -> bool:
     return a != b
 
 
-def from_parts(low: int, mid: int, high: int, isNegative: bool, scale: int) -> Decimal:
-    sign = -1 if isNegative else 1
+def from_parts(
+    low: IntegerTypes, mid: IntegerTypes, high: IntegerTypes, is_negative: IntegerTypes, scale: IntegerTypes
+) -> Decimal:
+    sign = -1 if is_negative else 1
 
-    if low < 0:
-        low = 0x100000000 + low
+    _low, _mid, _high, _scale = int(low), int(mid), int(high), int(scale)
 
-    if mid < 0:
-        mid = 0xFFFFFFFF00000000 + mid + 1
+    if _low < 0:
+        _low = 0x100000000 + _low
+
+    if _mid < 0:
+        _mid = 0xFFFFFFFF00000000 + _mid + 1
     else:
-        mid = mid << 32
+        _mid = _mid << 32
 
-    if high < 0:
-        high = 0xFFFFFFFF0000000000000000 + high + 1
+    if _high < 0:
+        _high = 0xFFFFFFFF0000000000000000 + _high + 1
     else:
-        high = high << 64
+        _high = _high << 64
 
-    value = Decimal((low + mid + high) * sign)
+    value = Decimal((_low + _mid + _high) * sign)
     if scale:
-        dscale = Decimal(pow(10, scale))
+        dscale = Decimal(pow(10, _scale))
         return value / dscale
     return value
 
@@ -142,6 +146,10 @@ def to_string(x: Decimal) -> str:
 
 def to_number(x: Decimal) -> float:
     return float(x)
+
+
+def to_int(x: Decimal) -> int:
+    return int(x)
 
 
 def parse(string: str) -> Decimal:
@@ -156,35 +164,45 @@ def try_parse(string: str, def_value: FSharpRef[Decimal]) -> bool:
         return False
 
 
+def create(value: float | IntegerTypes | str) -> Decimal:
+    match value:
+        case sbyte() | byte() | int16() | uint16() | int32() | uint32() | int64() | uint64():
+            return Decimal(int(value))
+        case _:
+            return Decimal(value)
+
+
 __all__ = [
-    "compare",
-    "equals",
     "abs",
-    "sign",
+    "add",
+    "compare",
+    "divide",
+    "equals",
+    "from_parts",
     "max",
     "min",
-    "add",
-    "subtract",
     "multiply",
-    "divide",
-    "remainder",
     "negate",
-    "op_unary_negation",
-    "op_unary_plus",
     "op_addition",
-    "op_subtraction",
-    "op_multiply",
     "op_division",
-    "op_modulus",
-    "op_less_than",
-    "op_less_than_or_equal",
+    "op_equality",
     "op_greater_than",
     "op_greater_than_or_equal",
-    "op_equality",
     "op_inequality",
-    "from_parts",
-    "to_string",
-    "to_number",
-    "try_parse",
+    "op_less_than",
+    "op_less_than_or_equal",
+    "op_modulus",
+    "op_multiply",
+    "op_subtraction",
+    "op_unary_negation",
+    "op_unary_plus",
     "parse",
+    "Decimal",
+    "remainder",
+    "sign",
+    "subtract",
+    "to_int",
+    "to_number",
+    "to_string",
+    "try_parse",
 ]

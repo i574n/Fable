@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .types import int64
+from .types import int64, uint32, uint64
 
 
 def to_fixed(x: float, dp: int | None = None) -> str:
@@ -32,15 +32,12 @@ def to_exponential(x: float, dp: int | None = None) -> str:
 
 
 def to_hex(x: int) -> str:
-    def rshift(val: int, n: int) -> int:
-        sign = 0x10000000000000000 if isinstance(val, int64) else 0x100000000
-        return val >> n if val >= 0 else (val + sign) >> n
-
-    return f"{rshift(x, 0):x}"
+    val = uint64(x) if isinstance(x, int64 | uint64) else uint32(x)
+    return f"{val:x}"
 
 
 def multiply(x: float, y: float) -> float:
     return x * y
 
 
-__all__ = ["to_fixed", "to_precision", "to_exponential", "to_hex", "multiply"]
+__all__ = ["multiply", "to_exponential", "to_fixed", "to_hex", "to_precision"]
