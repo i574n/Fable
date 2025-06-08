@@ -1,3 +1,5 @@
+cargo-features = ["edition2024"]
+
 [package]
 name = "fable_library_rust"
 version = "0.1.0"
