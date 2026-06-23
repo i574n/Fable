@@ -893,7 +893,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
             // First get a context containing all idents and use it compile the values
             let ctx, idents =
                 (recBindings, (ctx, []))
-                ||> List.foldBack (fun (PutIdentInScope com ctx (newContext, ident), _, _) (ctx, idents) ->
+                ||> List.foldBack (fun (PutIdentInScope com ctx (newContext, ident), _, _) (ctx_, idents) ->
                     (newContext, ident :: idents)
                 )
 
